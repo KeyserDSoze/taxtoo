@@ -5,24 +5,14 @@
       <stop offset="1" stop-color="#6366f1"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- calculator body -->
-  <rect x="148" y="120" width="216" height="272" rx="28" fill="#ffffff" opacity="0.96"/>
-  <!-- display -->
-  <rect x="178" y="150" width="156" height="56" rx="12" fill="#0f172a"/>
-  <text x="320" y="192" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#38bdf8" text-anchor="end">€</text>
-  <!-- buttons -->
-  <g fill="#6366f1">
-    <circle cx="196" cy="248" r="15"/>
-    <circle cx="256" cy="248" r="15"/>
-    <circle cx="316" cy="248" r="15"/>
-    <circle cx="196" cy="304" r="15"/>
-    <circle cx="256" cy="304" r="15"/>
-    <circle cx="316" cy="304" r="15"/>
-  </g>
-  <g fill="#0ea5e9">
-    <circle cx="196" cy="356" r="15"/>
-    <circle cx="256" cy="356" r="15"/>
-    <circle cx="316" cy="356" r="15"/>
-  </g>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <!-- document with folded corner -->
+  <path d="M150 108 H312 L388 184 V404 H150 Z" fill="#ffffff"/>
+  <path d="M312 108 V184 H388 Z" fill="#cfe8fb"/>
+  <!-- text lines -->
+  <rect x="186" y="210" width="150" height="16" rx="8" fill="#cbd5e1"/>
+  <rect x="186" y="246" width="120" height="16" rx="8" fill="#cbd5e1"/>
+  <!-- check badge -->
+  <circle cx="318" cy="330" r="56" fill="#0ea5e9"/>
+  <path d="M292 330 l18 18 l34 -38" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
