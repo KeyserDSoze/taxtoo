@@ -1,0 +1,38 @@
+# ---------- Node / React / Vite ----------
+node_modules/
+dist/
+dist-ssr/
+dist-electron/
+release/
+.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ---------- Capacitor / Android ----------
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+*.keystore
+*.keystore.b64
+
+# ---------- Env & secrets ----------
+.env
+.env.*
+!.env.example
+
+# ---------- Editors / OS ----------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---------- Logs ----------
+logs/
+*.log

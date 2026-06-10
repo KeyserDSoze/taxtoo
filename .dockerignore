@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.vs/
+**/.vite/
+**/.git/
+**/.env
+**/.env.*
+!**/.env.example
+**/*.user
+README.md
+docs/

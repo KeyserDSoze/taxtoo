@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Authenticating…</title>
+  <style>
+    body { margin: 0; background: #020617; display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; gap: 20px; padding: 20px; }
+    p { color: #94a3b8; font-family: sans-serif; font-size: 14px; text-align: center; margin: 0; }
+    .title { color: #e2e8f0; font-size: 18px; font-weight: 600; }
+    a.btn { display: inline-block; background: #0ea5e9; color: #fff; border: none; padding: 16px 32px; border-radius: 14px; font-size: 17px; font-weight: 600; cursor: pointer; font-family: sans-serif; text-decoration: none; text-align: center; min-width: 200px; }
+    a.btn:active { background: #0284c7; transform: scale(0.97); }
+    .hidden { display: none; }
+    .error { color: #f87171; }
+  </style>
+</head>
+<body>
+  <p class="title" id="title">Authentication complete!</p>
+  <p id="status">Tap the button below to return to the app</p>
+  <a id="openApp" class="btn hidden" href="#">Return to App</a>
+  <p id="error" class="error hidden"></p>
+  <script>
+    (function() {
+      var hashParams  = new URLSearchParams(window.location.hash.substring(1));
+      var queryParams = new URLSearchParams(window.location.search);
+
+      var accessToken = hashParams.get('access_token');
+      var code        = queryParams.get('code');
+      var error       = hashParams.get('error') || queryParams.get('error');
+
+      if (error) {
+        document.getElementById('title').textContent = 'Authentication failed';
+        document.getElementById('status').textContent = error;
+        document.getElementById('status').className = 'error';
+        return;
+      }
+
+      if (window.location.origin === 'http://localhost:54321') {
+        // ── Electron flow ─────────────────────────────────────────────────
+        document.getElementById('title').textContent = 'Redirecting…';
+        document.getElementById('status').textContent = '';
+        if (accessToken) {
+          sessionStorage.setItem('google_oauth_pending', JSON.stringify({
+            access_token: accessToken,
+            expires_in:   parseInt(hashParams.get('expires_in') || '3600', 10),
+            scope:        hashParams.get('scope') || '',
+          }));
+        }
+        window.location.replace('http://localhost:54321/');
+        return;
+      }
+
+      // ── Android / Mobile — build deep link ──────────────────────────────
+      var deepLinkParams;
+      if (accessToken) {
+        deepLinkParams = new URLSearchParams({
+          provider:     'google',
+          access_token: accessToken,
+          expires_in:   hashParams.get('expires_in') || '3600',
+        });
+      } else if (code) {
+        deepLinkParams = new URLSearchParams({
+          provider: 'microsoft',
+          code:     code,
+          state:    queryParams.get('state') || '',
+        });
+      }
+
+      if (!deepLinkParams) {
+        document.getElementById('title').textContent = 'Error';
+        document.getElementById('status').textContent = 'No credentials received. Close this window and try again.';
+        return;
+      }
+
+      var isAndroid = /Android/i.test(navigator.userAgent);
+      var returnUrl;
+      if (isAndroid) {
+        // intent:// is the official way for Chrome Custom Tabs on Android.
+        // S.browser_fallback_url tells Chrome where to go if the app isn't installed.
+        returnUrl = 'intent://oauth?' + deepLinkParams.toString()
+          + '#Intent;scheme=taxtoo;package=com.taxtoo.app;'
+          + 'S.browser_fallback_url=' + encodeURIComponent('https://taxtoo.app') + ';end';
+      } else {
+        returnUrl = 'taxtoo://oauth?' + deepLinkParams.toString();
+      }
+
+      // Show button immediately — Chrome Custom Tabs only honor user-gesture navigations
+      var btn = document.getElementById('openApp');
+      btn.href = returnUrl;
+      btn.className = 'btn';
+
+      // Also attempt auto-redirect (works in some browser contexts)
+      try { window.location.replace(returnUrl); } catch(e) {}
+    })();
+  </script>
+</body>
+</html>
