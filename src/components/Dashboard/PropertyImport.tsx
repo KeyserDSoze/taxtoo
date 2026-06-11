@@ -2,11 +2,11 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Upload, Sparkles, Loader2, Plus, PackageX } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { analyzeDocument } from '../../services/documentIntelligence';
 import {
   interpretPropertyDocument,
   type PropertyDocInterpretation,
-} from '../../services/azureOpenAI';
+} from '../../services/ai';
+import { isAiConfigured } from '../../services/aiClient';
 import { uid } from '../../lib/utils';
 import { Badge, Button, Card, Input } from '../ui/ui';
 import type { Property, PropertyUsage } from '../../types';
@@ -36,8 +36,7 @@ export default function PropertyImport({
   const [acqDate, setAcqDate] = useState('');
   const [added, setAdded] = useState<Set<number>>(new Set());
 
-  const aiConfigured = !!settings?.azureOpenAIEndpoint && !!settings?.azureOpenAIKey;
-  const ocrConfigured = !!settings?.docIntelEndpoint && !!settings?.docIntelKey;
+  const aiConfigured = isAiConfigured(settings);
 
   const analyze = async () => {
     if (!file || !settings) return;
@@ -46,8 +45,7 @@ export default function PropertyImport({
     setResult(null);
     setAdded(new Set());
     try {
-      const ocr = await analyzeDocument(file, settings);
-      const interpreted = await interpretPropertyDocument(ocr.content, ocr.tables, settings);
+      const interpreted = await interpretPropertyDocument(file, settings);
       setResult(interpreted);
       if (interpreted.date) setAcqDate(interpreted.date);
     } catch (e) {
@@ -105,7 +103,7 @@ export default function PropertyImport({
       </div>
       <p className="text-sm text-slate-500 dark:text-slate-400">{t('propertyImport.hint')}</p>
 
-      {(!aiConfigured || !ocrConfigured) && (
+      {(!aiConfigured) && (
         <div className="rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 text-sm px-3 py-2">
           {t('assistant.needsSettings')}
         </div>
@@ -132,7 +130,7 @@ export default function PropertyImport({
       <Button
         type="button"
         onClick={analyze}
-        disabled={!file || busy || !aiConfigured || !ocrConfigured}
+        disabled={!file || busy || !aiConfigured}
         className="w-full"
       >
         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}

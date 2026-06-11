@@ -10,7 +10,8 @@ import {
   IMU_ENGINE_VERSION,
 } from '../../lib/imu';
 import { generateF24Pdf } from '../../lib/f24/generateF24';
-import { generateSummary } from '../../services/azureOpenAI';
+import { generateSummary } from '../../services/ai';
+import { isAiConfigured } from '../../services/aiClient';
 import { ensurePropertyFolders, uploadFile } from '../../services/storage';
 import { uid, formatCurrency } from '../../lib/utils';
 import type { TaxCalculation, F24 } from '../../types';
@@ -59,7 +60,7 @@ export default function CalculationsPage() {
   const total = rows.reduce((s, r) => s + r.amount, 0);
   const installments = splitInstallments(result?.amountDue ?? 0);
 
-  const aiConfigured = !!settings?.azureOpenAIEndpoint && !!settings?.azureOpenAIKey;
+  const aiConfigured = isAiConfigured(settings);
 
   const buildCalculation = (): TaxCalculation => ({
     id: savedCalc?.id ?? uid('imu'),

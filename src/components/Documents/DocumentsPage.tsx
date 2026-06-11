@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Upload, Sparkles, FileText, Loader2, CheckCircle2 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { Badge, Button, Card, Field, SectionTitle, Select } from '../ui/ui';
-import { analyzeDocument } from '../../services/documentIntelligence';
-import { interpretDocument, type InterpretedDocument } from '../../services/azureOpenAI';
+import { interpretDocument, type InterpretedDocument } from '../../services/ai';
+import { isAiConfigured } from '../../services/aiClient';
 import { ensurePropertyFolders, ensureTaxpayerFolder, uploadFile } from '../../services/storage';
 import { uid } from '../../lib/utils';
 import type { TaxDocument, TaxDocumentType } from '../../types';
@@ -44,8 +44,7 @@ export default function DocumentsPage() {
   const taxpayer = taxpayers.find((tp) => tp.fiscalCode === activeFiscalCode) ?? taxpayers[0];
   const property = properties.find((p) => p.id === activePropertyId);
 
-  const aiConfigured = !!settings?.azureOpenAIEndpoint && !!settings?.azureOpenAIKey;
-  const ocrConfigured = !!settings?.docIntelEndpoint && !!settings?.docIntelKey;
+  const aiConfigured = isAiConfigured(settings);
 
   const analyze = async () => {
     if (!file || !settings || !user || !taxpayer) return;
@@ -53,13 +52,11 @@ export default function DocumentsPage() {
     setError(null);
     setResult(null);
     try {
-      // 1. OCR
-      const ocr = await analyzeDocument(file, settings);
-      // 2. Fiscal interpretation
-      const interpreted = await interpretDocument(ocr.content, ocr.tables, settings);
+      // 1. Read + interpret the document directly with the selected AI provider
+      const interpreted = await interpretDocument(file, settings);
       setResult(interpreted);
 
-      // 3. Save the document to Drive
+      // 2. Save the document to Drive
       const propertyKey = property ? `${property.municipalityCode}_${property.id}` : null;
       let parentId: string;
       if (propertyKey) {
@@ -124,7 +121,7 @@ export default function DocumentsPage() {
             {t('documents.upload')}
           </SectionTitle>
 
-          {(!aiConfigured || !ocrConfigured) && (
+          {!aiConfigured && (
             <div className="rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 text-sm px-3 py-2">
               {t('assistant.needsSettings')}
             </div>
@@ -170,7 +167,7 @@ export default function DocumentsPage() {
 
           <Button
             onClick={analyze}
-            disabled={!file || busy || !aiConfigured || !ocrConfigured}
+            disabled={!file || busy || !aiConfigured}
             className="w-full"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}

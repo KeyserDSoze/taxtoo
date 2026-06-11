@@ -35,8 +35,7 @@ over completeness.
 | Windows | Electron + electron-builder |
 | Auth | Google OAuth 2.0 (`@react-oauth/google`) + Microsoft MSAL (`@azure/msal-*`) |
 | Storage | Google Drive API v3 / Microsoft Graph (OneDrive) — user's own cloud |
-| AI (extraction) | Azure Document Intelligence (client-side, user key) |
-| AI (reasoning/chat) | Azure OpenAI (client-side, user key) |
+| AI (extraction + reasoning) | User-selected provider: Azure OpenAI / OpenAI / Google Gemini (client-side, user key). Documents read directly by the multimodal model — no separate OCR. Microsoft 365 Copilot is a selectable option (direct calls not wired yet). |
 | Hosting | GitHub Pages (static) + GitHub Releases (.apk / .exe) |
 
 ## Hard rules
@@ -53,9 +52,10 @@ over completeness.
    `src/services/storage.ts`, never from `googleDrive.ts` / `oneDrive.ts` directly. The two
    adapters expose the **same interface** so the provider can be swapped from one field on the
    user object (`provider: 'google' | 'microsoft'`).
-4. **Separate AI from the tax engine.** AI (Document Intelligence + Azure OpenAI) only
-   *proposes* structured data and *explains*. The **IMU calculation engine is deterministic,
-   pure TypeScript** (`src/lib/imu/`), independent of AI, fully unit-tested. Flow is always:
+4. **Separate AI from the tax engine.** AI only *proposes* structured data and *explains*.
+   The selected provider (Azure OpenAI / OpenAI / Gemini) reads documents directly (multimodal,
+   no separate OCR). The **IMU calculation engine is deterministic, pure TypeScript**
+   (`src/lib/imu/`), independent of AI, fully unit-tested. Flow is always:
    **AI proposes → user reviews/edits → engine computes → user confirms → save**.
 5. **Every calculation is auditable.** Each `TaxCalculation` records its input sources, any
    manual overrides, the engine version, and a status (`draft` → `user_confirmed`).
@@ -134,8 +134,8 @@ src/
     googleDrive.ts          Google Drive API v3 adapter
     oneDrive.ts             Microsoft Graph (OneDrive) adapter (same interface)
     storage.ts              provider dispatcher (import this from components)
-    azureOpenAI.ts          chat assistant + fiscal interpretation
-    documentIntelligence.ts Azure Document Intelligence (OCR/extraction)
+    aiClient.ts             AI provider dispatch (Azure OpenAI / OpenAI / Gemini), multimodal
+    ai.ts                   fiscal/property extraction + chat + summary (reads files directly)
   lib/imu/                  deterministic IMU engine (pure, unit-tested) + tax-code dictionary
   i18n/                     i18next setup + locales (it, en, …)
   hooks/                    useTheme, useTokenRefresh, useInstallPrompt, …

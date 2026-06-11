@@ -6,13 +6,22 @@
 
 export type StorageProvider = 'google' | 'microsoft';
 
+/** AI provider the user picks for extraction + chat. */
+export type AiProvider = 'azure_openai' | 'openai' | 'gemini' | 'copilot_m365';
+
 export interface AppSettings {
-  // AI providers (client-side, user key — never sent to any server of ours)
+  // Selected AI provider
+  aiProvider: AiProvider;
+  // Azure OpenAI
   azureOpenAIEndpoint: string;
   azureOpenAIKey: string;
-  modelChat: string; // e.g. 'gpt-4o'
-  docIntelEndpoint: string; // Azure Document Intelligence endpoint
-  docIntelKey: string;
+  azureOpenAIModel: string; // deployment name, e.g. 'gpt-4o'
+  // OpenAI
+  openAIKey: string;
+  openAIModel: string; // e.g. 'gpt-4o'
+  // Google Gemini
+  geminiKey: string;
+  geminiModel: string; // e.g. 'gemini-2.0-flash'
   // Language layers
   language?: string; // interface language (it | en | ...)
   explanationLanguage?: string; // language for AI explanations / summaries

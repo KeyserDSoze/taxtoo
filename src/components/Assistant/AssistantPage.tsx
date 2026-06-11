@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Send, Sparkles, Loader2 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { Card } from '../ui/ui';
-import { chatAssistant } from '../../services/azureOpenAI';
+import { chatAssistant } from '../../services/ai';
+import { isAiConfigured } from '../../services/aiClient';
 import { uid } from '../../lib/utils';
 import type { ChatMessage } from '../../types';
 
@@ -15,7 +16,7 @@ export default function AssistantPage() {
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
-  const aiConfigured = !!settings?.azureOpenAIEndpoint && !!settings?.azureOpenAIKey;
+  const aiConfigured = isAiConfigured(settings);
 
   const context = JSON.stringify({
     taxpayer: taxpayers.find((tp) => tp.fiscalCode === activeFiscalCode) ?? taxpayers[0],

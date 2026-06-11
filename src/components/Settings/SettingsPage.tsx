@@ -5,19 +5,23 @@ import { LogOut, Save, Loader2, ExternalLink } from 'lucide-react';
 import i18n, { SUPPORTED_LANGUAGES } from '../../i18n/index';
 import { useStore } from '../../store/useStore';
 import { saveSettings } from '../../services/storage';
+import { AI_PROVIDERS } from '../../services/aiClient';
 import { Button, Card, Field, Input, Select, SectionTitle } from '../ui/ui';
-import type { AppSettings } from '../../types';
+import type { AppSettings, AiProvider } from '../../types';
 
 export default function SettingsPage() {
   const { t } = useTranslation();
   const { user, settings, settingsDriveFileId, setSettings, logout } = useStore();
 
   const [form, setForm] = useState<AppSettings>({
+    aiProvider: settings?.aiProvider ?? 'azure_openai',
     azureOpenAIEndpoint: settings?.azureOpenAIEndpoint ?? '',
     azureOpenAIKey: settings?.azureOpenAIKey ?? '',
-    modelChat: settings?.modelChat ?? 'gpt-4o',
-    docIntelEndpoint: settings?.docIntelEndpoint ?? '',
-    docIntelKey: settings?.docIntelKey ?? '',
+    azureOpenAIModel: settings?.azureOpenAIModel ?? 'gpt-4o',
+    openAIKey: settings?.openAIKey ?? '',
+    openAIModel: settings?.openAIModel ?? 'gpt-4o',
+    geminiKey: settings?.geminiKey ?? '',
+    geminiModel: settings?.geminiModel ?? 'gemini-2.0-flash',
     language: settings?.language ?? i18n.language ?? 'it',
     explanationLanguage: settings?.explanationLanguage ?? settings?.language ?? 'it',
     theme: settings?.theme ?? 'auto',
@@ -30,8 +34,23 @@ export default function SettingsPage() {
   const set = <K extends keyof AppSettings>(k: K, v: AppSettings[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  const providerConfigured = () => {
+    switch (form.aiProvider) {
+      case 'azure_openai':
+        return !!form.azureOpenAIEndpoint && !!form.azureOpenAIKey && !!form.azureOpenAIModel;
+      case 'openai':
+        return !!form.openAIKey && !!form.openAIModel;
+      case 'gemini':
+        return !!form.geminiKey && !!form.geminiModel;
+      case 'copilot_m365':
+        return true; // selectable; calls guarded at runtime
+      default:
+        return false;
+    }
+  };
+
   const save = async () => {
-    if (!form.azureOpenAIEndpoint || !form.azureOpenAIKey) {
+    if (!providerConfigured()) {
       setError(t('settings.errorRequired'));
       setStatus('error');
       return;
@@ -85,38 +104,91 @@ export default function SettingsPage() {
 
       {/* AI */}
       <Card className="p-4 space-y-3">
-        <SectionTitle hint={t('app.poweredBy')}>{t('settings.ai')}</SectionTitle>
-        <Field label={t('settings.azureEndpoint')}>
-          <Input
-            value={form.azureOpenAIEndpoint}
-            onChange={(e) => set('azureOpenAIEndpoint', e.target.value)}
-            placeholder="https://my-resource.openai.azure.com"
-          />
+        <SectionTitle hint={t('settings.aiHint')}>{t('settings.ai')}</SectionTitle>
+        <Field label={t('settings.aiProvider')}>
+          <Select
+            value={form.aiProvider}
+            onChange={(e) => set('aiProvider', e.target.value as AiProvider)}
+          >
+            {AI_PROVIDERS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </Select>
         </Field>
-        <Field label={t('settings.azureKey')}>
-          <Input
-            type="password"
-            value={form.azureOpenAIKey}
-            onChange={(e) => set('azureOpenAIKey', e.target.value)}
-          />
-        </Field>
-        <Field label={t('settings.modelChat')}>
-          <Input value={form.modelChat} onChange={(e) => set('modelChat', e.target.value)} />
-        </Field>
-        <Field label={t('settings.docIntelEndpoint')}>
-          <Input
-            value={form.docIntelEndpoint}
-            onChange={(e) => set('docIntelEndpoint', e.target.value)}
-            placeholder="https://my-docintel.cognitiveservices.azure.com"
-          />
-        </Field>
-        <Field label={t('settings.docIntelKey')}>
-          <Input
-            type="password"
-            value={form.docIntelKey}
-            onChange={(e) => set('docIntelKey', e.target.value)}
-          />
-        </Field>
+
+        {form.aiProvider === 'azure_openai' && (
+          <>
+            <Field label={t('settings.azureEndpoint')}>
+              <Input
+                value={form.azureOpenAIEndpoint}
+                onChange={(e) => set('azureOpenAIEndpoint', e.target.value)}
+                placeholder="https://my-resource.openai.azure.com"
+              />
+            </Field>
+            <Field label={t('settings.azureKey')}>
+              <Input
+                type="password"
+                value={form.azureOpenAIKey}
+                onChange={(e) => set('azureOpenAIKey', e.target.value)}
+              />
+            </Field>
+            <Field label={t('settings.modelDeployment')}>
+              <Input
+                value={form.azureOpenAIModel}
+                onChange={(e) => set('azureOpenAIModel', e.target.value)}
+                placeholder="gpt-4o"
+              />
+            </Field>
+          </>
+        )}
+
+        {form.aiProvider === 'openai' && (
+          <>
+            <Field label={t('settings.openAIKey')}>
+              <Input
+                type="password"
+                value={form.openAIKey}
+                onChange={(e) => set('openAIKey', e.target.value)}
+                placeholder="sk-..."
+              />
+            </Field>
+            <Field label={t('settings.modelChat')}>
+              <Input
+                value={form.openAIModel}
+                onChange={(e) => set('openAIModel', e.target.value)}
+                placeholder="gpt-4o"
+              />
+            </Field>
+          </>
+        )}
+
+        {form.aiProvider === 'gemini' && (
+          <>
+            <Field label={t('settings.geminiKey')}>
+              <Input
+                type="password"
+                value={form.geminiKey}
+                onChange={(e) => set('geminiKey', e.target.value)}
+                placeholder="AIza..."
+              />
+            </Field>
+            <Field label={t('settings.modelChat')}>
+              <Input
+                value={form.geminiModel}
+                onChange={(e) => set('geminiModel', e.target.value)}
+                placeholder="gemini-2.0-flash"
+              />
+            </Field>
+          </>
+        )}
+
+        {form.aiProvider === 'copilot_m365' && (
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 text-sm px-3 py-2">
+            {t('settings.copilotNotReady')}
+          </div>
+        )}
       </Card>
 
       {/* Preferences */}
