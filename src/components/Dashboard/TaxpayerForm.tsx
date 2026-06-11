@@ -21,8 +21,12 @@ export default function TaxpayerForm({ initial, onSave, onCancel }: Props) {
   const set = (k: keyof Taxpayer, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const submit = () => {
+    const missing: string[] = [];
+    if (!form.fiscalCode) missing.push(t('taxpayer.fiscalCode'));
+    if (!form.firstName) missing.push(t('taxpayer.firstName'));
+    if (!form.lastName) missing.push(t('taxpayer.lastName'));
     if (!form.fiscalCode || !form.firstName || !form.lastName) {
-      setError(t('taxpayer.requiredHint'));
+      setError(`${t('taxpayer.requiredHint')} (${missing.join(', ')})`);
       return;
     }
     setError(null);
@@ -50,7 +54,7 @@ export default function TaxpayerForm({ initial, onSave, onCancel }: Props) {
           <Input
             value={form.fiscalCode ?? ''}
             onChange={(e) => set('fiscalCode', e.target.value)}
-            placeholder="RPTLSN86C06C765A"
+            placeholder="MRARSS80A01H501Z"
             autoCapitalize="characters"
           />
         </Field>
