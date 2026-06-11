@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Plus, User, Home, FileText, Calculator, Cloud, Trash2, Loader2 } from 'lucide-react';
+import { Plus, User, Home, FileText, Calculator, Cloud, Trash2, Loader2, FileUp } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { ensureTaxpayerFolder, ensurePropertyFolders, uploadFile } from '../../services/storage';
 import type { Taxpayer, Property } from '../../types';
 import { Badge, Button, Card, SectionTitle } from '../ui/ui';
 import TaxpayerForm from './TaxpayerForm';
 import PropertyForm from './PropertyForm';
+import PropertyImport from './PropertyImport';
 
 function Stat({
   icon: Icon,
@@ -52,13 +53,16 @@ export default function DashboardPage() {
 
   const [showTaxpayerForm, setShowTaxpayerForm] = useState(false);
   const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const [showPropertyImport, setShowPropertyImport] = useState(false);
   const [savingTaxpayer, setSavingTaxpayer] = useState(false);
   const [taxpayerError, setTaxpayerError] = useState<string | null>(null);
   const [savingProperty, setSavingProperty] = useState(false);
   const [propertyError, setPropertyError] = useState<string | null>(null);
 
   const active = taxpayers.find((tp) => tp.fiscalCode === activeFiscalCode) ?? taxpayers[0];
-  const activeProperties = properties.filter((p) => p.taxpayerFiscalCode === active?.fiscalCode);
+  const activeProperties = properties.filter(
+    (p) => p.taxpayerFiscalCode === active?.fiscalCode && p.status !== 'sold'
+  );
 
   const providerLabel = user?.provider === 'microsoft' ? 'OneDrive' : 'Google Drive';
 
@@ -111,6 +115,32 @@ export default function DashboardPage() {
         folders.propertyFolderId
       );
       updateProperty(p.id, { drivePropertyFileId: fileId });
+    } catch (e) {
+      setPropertyError(e instanceof Error ? e.message : 'Errore nel salvataggio su Drive');
+    } finally {
+      setSavingProperty(false);
+    }
+  };
+
+  // Mark a property as sold (it leaves the active list) and persist to Drive.
+  const handleMarkSold = async (propertyId: string, date?: string) => {
+    const p = properties.find((x) => x.id === propertyId);
+    updateProperty(propertyId, { status: 'sold', disposalDate: date });
+    setShowPropertyImport(false);
+    if (!user || !p) return;
+    setSavingProperty(true);
+    setPropertyError(null);
+    try {
+      const updated = { ...p, status: 'sold' as const, disposalDate: date, updatedAt: new Date().toISOString() };
+      const propertyKey = `${p.municipalityCode}_${p.id}`;
+      const folders = await ensurePropertyFolders(user, p.taxpayerFiscalCode, propertyKey);
+      await uploadFile(
+        user,
+        'property.json',
+        JSON.stringify(updated, null, 2),
+        'application/json',
+        folders.propertyFolderId
+      );
     } catch (e) {
       setPropertyError(e instanceof Error ? e.message : 'Errore nel salvataggio su Drive');
     } finally {
@@ -230,13 +260,31 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <SectionTitle>{t('dashboard.properties')}</SectionTitle>
-            {!showPropertyForm && (
-              <Button variant="secondary" onClick={() => setShowPropertyForm(true)}>
-                <Plus className="w-4 h-4" />
-                {t('property.add')}
-              </Button>
+            {!showPropertyForm && !showPropertyImport && (
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => setShowPropertyImport(true)}>
+                  <FileUp className="w-4 h-4" />
+                  {t('propertyImport.button')}
+                </Button>
+                <Button variant="secondary" onClick={() => setShowPropertyForm(true)}>
+                  <Plus className="w-4 h-4" />
+                  {t('property.add')}
+                </Button>
+              </div>
             )}
           </div>
+
+          {showPropertyImport && (
+            <div className="mb-3">
+              <PropertyImport
+                taxpayerFiscalCode={active.fiscalCode}
+                existing={activeProperties}
+                onCreateProperty={handleSaveProperty}
+                onMarkSold={handleMarkSold}
+                onClose={() => setShowPropertyImport(false)}
+              />
+            </div>
+          )}
 
           {showPropertyForm && (
             <Card className="p-4 mb-3">

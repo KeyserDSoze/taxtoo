@@ -81,6 +81,7 @@ export default {
     cadastralIncome: 'Rendita catastale',
     ownershipShare: 'Quota possesso (%)',
     monthsOwned: 'Mesi di possesso',
+    acquisitionDate: 'Data di acquisto',
     usageType: 'Tipo di utilizzo',
     usage: {
       main_home: 'Abitazione principale',
@@ -99,6 +100,18 @@ export default {
     add: 'Aggiungi immobile',
     empty: 'Nessun immobile registrato.',
     requiredHint: 'Compila almeno descrizione e codice comune.',
+  },
+  propertyImport: {
+    button: 'Importa da documento',
+    title: 'Importa immobile da documento',
+    hint: 'Carica una visura catastale o un atto notarile: l\u2019AI estrae gli immobili. Se carichi un atto di vendita, ti propongo di segnare l\u2019immobile come venduto.',
+    deed: {
+      purchase: 'Atto di acquisto',
+      sale: 'Atto di vendita',
+      other: 'Documento informativo (visura)',
+    },
+    markSold: 'Segna come venduto',
+    noSaleMatch: 'Nessun immobile registrato corrisponde a questo atto di vendita.',
   },
   documents: {
     title: 'Documenti',

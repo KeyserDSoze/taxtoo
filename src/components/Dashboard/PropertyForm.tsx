@@ -50,8 +50,10 @@ export default function PropertyForm({ taxpayerFiscalCode, initial, onSave, onCa
       monthsOwned: Number(form.monthsOwned ?? 12),
       usageType: form.usageType as PropertyUsage,
       isMainHome: form.usageType === 'main_home',
+      acquisitionDate: form.acquisitionDate,
+      disposalDate: form.disposalDate,
       notes: form.notes,
-      status: 'to_verify',
+      status: initial?.status ?? 'to_verify',
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
       drivePropertyFileId: initial?.drivePropertyFileId,
@@ -62,7 +64,7 @@ export default function PropertyForm({ taxpayerFiscalCode, initial, onSave, onCa
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label={t('property.label')}>
-          <Input value={form.label ?? ''} onChange={(e) => set('label', e.target.value)} placeholder="Casa Viterbo" />
+          <Input value={form.label ?? ''} onChange={(e) => set('label', e.target.value)} placeholder="Casa al mare" />
         </Field>
         <Field label={t('property.usageType')}>
           <Select value={form.usageType ?? 'other_building'} onChange={(e) => set('usageType', e.target.value)}>
@@ -74,13 +76,13 @@ export default function PropertyForm({ taxpayerFiscalCode, initial, onSave, onCa
           </Select>
         </Field>
         <Field label={t('property.municipality')}>
-          <Input value={form.municipality ?? ''} onChange={(e) => set('municipality', e.target.value)} placeholder="Viterbo" />
+          <Input value={form.municipality ?? ''} onChange={(e) => set('municipality', e.target.value)} placeholder="Roma" />
         </Field>
         <Field label={t('property.municipalityCode')}>
           <Input
             value={form.municipalityCode ?? ''}
             onChange={(e) => set('municipalityCode', e.target.value)}
-            placeholder="L612"
+            placeholder="H501"
             autoCapitalize="characters"
           />
         </Field>
@@ -107,6 +109,13 @@ export default function PropertyForm({ taxpayerFiscalCode, initial, onSave, onCa
             type="number"
             value={form.monthsOwned ?? 12}
             onChange={(e) => set('monthsOwned', e.target.value)}
+          />
+        </Field>
+        <Field label={t('property.acquisitionDate')}>
+          <Input
+            type="date"
+            value={form.acquisitionDate ?? ''}
+            onChange={(e) => set('acquisitionDate', e.target.value)}
           />
         </Field>
       </div>

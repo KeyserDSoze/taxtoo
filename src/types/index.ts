@@ -65,7 +65,8 @@ export type PropertyStatus =
   | 'to_verify'
   | 'verified'
   | 'used_in_calc'
-  | 'archived';
+  | 'archived'
+  | 'sold';
 
 export interface Property {
   id: string;
@@ -81,6 +82,8 @@ export interface Property {
   isMainHome?: boolean;
   isExempt?: boolean;
   hasReduction?: boolean;
+  acquisitionDate?: string; // ISO yyyy-mm-dd — data da cui si è proprietari
+  disposalDate?: string; // ISO yyyy-mm-dd — data di vendita/cessione
   notes?: string;
   status: PropertyStatus;
   createdAt: string;

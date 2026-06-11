@@ -107,8 +107,94 @@ export async function interpretDocument(
   }
 }
 
-// ---------- COPILOT-LIKE CHAT ----------
+// ---------- PROPERTY DOCUMENT INTERPRETATION (visura / deed) ----------
 
+export interface ExtractedProperty {
+  label?: string;
+  municipality?: string;
+  municipalityCode?: string;
+  category?: string;
+  cadastralIncome?: number;
+  ownershipShare?: number;
+  address?: string;
+  usageType?: 'main_home' | 'other_building' | 'land' | 'buildable_area' | 'appurtenance';
+}
+
+export interface PropertyDocInterpretation {
+  documentType: TaxDocumentType;
+  /** purchase = acquisto (diventa proprietario), sale = vendita (cede), other = informativo */
+  deedKind: 'purchase' | 'sale' | 'other';
+  /** Date the ownership starts (purchase) or ends (sale), ISO yyyy-mm-dd if found. */
+  date?: string;
+  ownerFiscalCode?: string;
+  properties: ExtractedProperty[];
+  confidence: number;
+  explanation: string;
+}
+
+/**
+ * Interpret a cadastral/deed document (visura catastale, atto notarile) and extract
+ * the property/properties plus whether it is a purchase or a sale and the relevant date.
+ */
+export async function interpretPropertyDocument(
+  ocrText: string,
+  tables: string[][][],
+  settings: AppSettings
+): Promise<PropertyDocInterpretation> {
+  const client = getClient(settings);
+  const lang = languageName(settings.explanationLanguage ?? settings.language);
+
+  const tablesText = tables
+    .map((t, i) => `Table ${i + 1}:\n${t.map((row) => row.join(' | ')).join('\n')}`)
+    .join('\n\n');
+
+  const systemPrompt =
+    'You are a real-estate data extraction assistant for Italian cadastral documents ' +
+    '(visura catastale) and notarial deeds (atto di compravendita / vendita / acquisto). ' +
+    'Extract the property or properties described. NEVER translate or alter codice comune ' +
+    '(e.g. L612), codice fiscale, or cadastral categories (A/2, C/2, D/1...). ' +
+    'Determine "deedKind": "purchase" if the document makes the taxpayer the new owner, ' +
+    '"sale" if the taxpayer sells/transfers the property away, "other" for a plain visura. ' +
+    'Extract "date" (the deed/effective date) as ISO yyyy-mm-dd when present. ' +
+    `Write "explanation" in ${lang}. ` +
+    'Respond ONLY with a valid JSON object: ' +
+    '{ "documentType": "visura"|"deed"|"other", "deedKind": "purchase"|"sale"|"other", ' +
+    '"date": string|null, "ownerFiscalCode": string|null, "confidence": number (0..1), ' +
+    '"properties": [ { "label": string, "municipality": string, "municipalityCode": string, ' +
+    '"category": string, "cadastralIncome": number, "ownershipShare": number, "address": string, ' +
+    '"usageType": "main_home"|"other_building"|"land"|"buildable_area"|"appurtenance" } ], ' +
+    '"explanation": string }. ' +
+    'Use null/empty for unknown fields. cadastralIncome and ownershipShare are numbers (dot decimals).';
+
+  const userPrompt = `OCR text:\n${ocrText.slice(0, 12000)}\n\n${tablesText.slice(0, 6000)}`;
+
+  const response = await client.chat.completions.create({
+    model: settings.modelChat,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    response_format: { type: 'json_object' },
+  });
+
+  const content = response.choices[0]?.message?.content ?? '{}';
+  try {
+    const parsed = JSON.parse(content) as PropertyDocInterpretation;
+    return {
+      documentType: parsed.documentType ?? 'other',
+      deedKind: parsed.deedKind ?? 'other',
+      date: parsed.date ?? undefined,
+      ownerFiscalCode: parsed.ownerFiscalCode ?? undefined,
+      properties: parsed.properties ?? [],
+      confidence: parsed.confidence ?? 0,
+      explanation: parsed.explanation ?? '',
+    };
+  } catch {
+    return { documentType: 'other', deedKind: 'other', properties: [], confidence: 0, explanation: content };
+  }
+}
+
+// ---------- COPILOT-LIKE CHAT ----------
 /**
  * Side assistant chat. `context` is an optional JSON-ish summary of the current
  * practice (taxpayer, property, calculation) the model can reason over.

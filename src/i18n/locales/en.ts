@@ -81,6 +81,7 @@ export default {
     cadastralIncome: 'Rendita catastale',
     ownershipShare: 'Ownership share (%)',
     monthsOwned: 'Months owned',
+    acquisitionDate: 'Acquisition date',
     usageType: 'Usage type',
     usage: {
       main_home: 'Main home',
@@ -99,6 +100,18 @@ export default {
     add: 'Add property',
     empty: 'No property registered.',
     requiredHint: 'Fill in at least description and codice comune.',
+  },
+  propertyImport: {
+    button: 'Import from document',
+    title: 'Import property from document',
+    hint: 'Upload a visura catastale or a notarial deed: AI extracts the properties. If you upload a sale deed, I will offer to mark the property as sold.',
+    deed: {
+      purchase: 'Purchase deed',
+      sale: 'Sale deed',
+      other: 'Informational document (visura)',
+    },
+    markSold: 'Mark as sold',
+    noSaleMatch: 'No registered property matches this sale deed.',
   },
   documents: {
     title: 'Documents',
