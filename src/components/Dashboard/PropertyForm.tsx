@@ -30,9 +30,14 @@ export default function PropertyForm({ taxpayerFiscalCode, initial, onSave, onCa
   });
 
   const set = (k: keyof Property, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
+  const [error, setError] = useState<string | null>(null);
 
   const submit = () => {
-    if (!form.label || !form.municipalityCode) return;
+    if (!form.label || !form.municipalityCode) {
+      setError(t('property.requiredHint'));
+      return;
+    }
+    setError(null);
     onSave({
       id: initial?.id ?? uid('prop'),
       taxpayerFiscalCode,
@@ -105,10 +110,11 @@ export default function PropertyForm({ taxpayerFiscalCode, initial, onSave, onCa
           />
         </Field>
       </div>
+      {error && <p className="text-sm text-red-500">{error}</p>}
       <div className="flex gap-2 pt-1">
-        <Button onClick={submit}>{t('common.save')}</Button>
+        <Button type="button" onClick={submit}>{t('common.save')}</Button>
         {onCancel && (
-          <Button variant="ghost" onClick={onCancel}>
+          <Button type="button" variant="ghost" onClick={onCancel}>
             {t('common.cancel')}
           </Button>
         )}

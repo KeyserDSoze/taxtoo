@@ -16,11 +16,16 @@ export default function TaxpayerForm({ initial, onSave, onCancel }: Props) {
     sex: 'M',
     ...initial,
   });
+  const [error, setError] = useState<string | null>(null);
 
   const set = (k: keyof Taxpayer, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const submit = () => {
-    if (!form.fiscalCode || !form.firstName || !form.lastName) return;
+    if (!form.fiscalCode || !form.firstName || !form.lastName) {
+      setError(t('taxpayer.requiredHint'));
+      return;
+    }
+    setError(null);
     onSave({
       fiscalCode: form.fiscalCode.toUpperCase().trim(),
       firstName: form.firstName.trim(),
@@ -77,10 +82,11 @@ export default function TaxpayerForm({ initial, onSave, onCancel }: Props) {
           <Input value={form.address ?? ''} onChange={(e) => set('address', e.target.value)} />
         </Field>
       </div>
+      {error && <p className="text-sm text-red-500">{error}</p>}
       <div className="flex gap-2 pt-1">
-        <Button onClick={submit}>{t('taxpayer.save')}</Button>
+        <Button type="button" onClick={submit}>{t('taxpayer.save')}</Button>
         {onCancel && (
-          <Button variant="ghost" onClick={onCancel}>
+          <Button type="button" variant="ghost" onClick={onCancel}>
             {t('common.cancel')}
           </Button>
         )}

@@ -53,6 +53,7 @@ export default {
     addTaxpayer: 'Add taxpayer',
     storage: 'Storage',
     storageConnected: 'Connected to {{provider}}',
+    notConnected: 'You are not connected to a storage (Drive/OneDrive). Data is saved locally only.',
   },
   taxpayer: {
     title: 'Taxpayer',
@@ -69,6 +70,7 @@ export default {
     domicileProvince: 'Domicile province',
     address: 'Address',
     save: 'Save taxpayer',
+    requiredHint: 'Fill in at least codice fiscale, first name and last name.',
   },
   property: {
     title: 'Property',
@@ -96,6 +98,7 @@ export default {
     },
     add: 'Add property',
     empty: 'No property registered.',
+    requiredHint: 'Fill in at least description and codice comune.',
   },
   documents: {
     title: 'Documents',

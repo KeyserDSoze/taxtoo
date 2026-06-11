@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Plus, User, Home, FileText, Calculator, Cloud, Trash2 } from 'lucide-react';
+import { Plus, User, Home, FileText, Calculator, Cloud, Trash2, Loader2 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { ensureTaxpayerFolder, ensurePropertyFolders, uploadFile } from '../../services/storage';
+import type { Taxpayer, Property } from '../../types';
 import { Badge, Button, Card, SectionTitle } from '../ui/ui';
 import TaxpayerForm from './TaxpayerForm';
 import PropertyForm from './PropertyForm';
@@ -41,18 +43,80 @@ export default function DashboardPage() {
     activeFiscalCode,
     setActiveFiscalCode,
     addTaxpayer,
+    updateTaxpayer,
     removeTaxpayer,
     addProperty,
+    updateProperty,
     removeProperty,
   } = useStore();
 
   const [showTaxpayerForm, setShowTaxpayerForm] = useState(false);
   const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const [savingTaxpayer, setSavingTaxpayer] = useState(false);
+  const [taxpayerError, setTaxpayerError] = useState<string | null>(null);
+  const [savingProperty, setSavingProperty] = useState(false);
+  const [propertyError, setPropertyError] = useState<string | null>(null);
 
   const active = taxpayers.find((tp) => tp.fiscalCode === activeFiscalCode) ?? taxpayers[0];
   const activeProperties = properties.filter((p) => p.taxpayerFiscalCode === active?.fiscalCode);
 
   const providerLabel = user?.provider === 'microsoft' ? 'OneDrive' : 'Google Drive';
+
+  // Save the taxpayer locally, then persist profile.json to the user's Drive.
+  const handleSaveTaxpayer = async (tp: Taxpayer) => {
+    addTaxpayer(tp);
+    setActiveFiscalCode(tp.fiscalCode);
+    setShowTaxpayerForm(false);
+    setTaxpayerError(null);
+    if (!user) {
+      setTaxpayerError(t('dashboard.notConnected'));
+      return;
+    }
+    setSavingTaxpayer(true);
+    try {
+      const folderId = await ensureTaxpayerFolder(user, tp.fiscalCode);
+      const fileId = await uploadFile(
+        user,
+        'profile.json',
+        JSON.stringify(tp, null, 2),
+        'application/json',
+        folderId
+      );
+      updateTaxpayer(tp.fiscalCode, { driveProfileFileId: fileId });
+    } catch (e) {
+      setTaxpayerError(e instanceof Error ? e.message : 'Errore nel salvataggio su Drive');
+    } finally {
+      setSavingTaxpayer(false);
+    }
+  };
+
+  // Save the property locally, then persist property.json to the user's Drive.
+  const handleSaveProperty = async (p: Property) => {
+    addProperty(p);
+    setShowPropertyForm(false);
+    setPropertyError(null);
+    if (!user) {
+      setPropertyError(t('dashboard.notConnected'));
+      return;
+    }
+    setSavingProperty(true);
+    try {
+      const propertyKey = `${p.municipalityCode}_${p.id}`;
+      const folders = await ensurePropertyFolders(user, p.taxpayerFiscalCode, propertyKey);
+      const fileId = await uploadFile(
+        user,
+        'property.json',
+        JSON.stringify(p, null, 2),
+        'application/json',
+        folders.propertyFolderId
+      );
+      updateProperty(p.id, { drivePropertyFileId: fileId });
+    } catch (e) {
+      setPropertyError(e instanceof Error ? e.message : 'Errore nel salvataggio su Drive');
+    } finally {
+      setSavingProperty(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -100,14 +164,22 @@ export default function DashboardPage() {
         {showTaxpayerForm && (
           <Card className="p-4 mb-3">
             <TaxpayerForm
-              onSave={(tp) => {
-                addTaxpayer(tp);
-                setActiveFiscalCode(tp.fiscalCode);
-                setShowTaxpayerForm(false);
-              }}
+              onSave={handleSaveTaxpayer}
               onCancel={() => setShowTaxpayerForm(false)}
             />
           </Card>
+        )}
+
+        {savingTaxpayer && (
+          <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            {t('settings.saving')}
+          </div>
+        )}
+        {taxpayerError && (
+          <div className="rounded-xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-300 text-sm px-3 py-2 mb-3">
+            {taxpayerError}
+          </div>
         )}
 
         {taxpayers.length === 0 && !showTaxpayerForm ? (
@@ -170,13 +242,22 @@ export default function DashboardPage() {
             <Card className="p-4 mb-3">
               <PropertyForm
                 taxpayerFiscalCode={active.fiscalCode}
-                onSave={(p) => {
-                  addProperty(p);
-                  setShowPropertyForm(false);
-                }}
+                onSave={handleSaveProperty}
                 onCancel={() => setShowPropertyForm(false)}
               />
             </Card>
+          )}
+
+          {savingProperty && (
+            <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {t('settings.saving')}
+            </div>
+          )}
+          {propertyError && (
+            <div className="rounded-xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-300 text-sm px-3 py-2 mb-3">
+              {propertyError}
+            </div>
           )}
 
           {activeProperties.length === 0 && !showPropertyForm ? (

@@ -53,6 +53,7 @@ export default {
     addTaxpayer: 'Aggiungi contribuente',
     storage: 'Archivio',
     storageConnected: 'Connesso a {{provider}}',
+    notConnected: 'Non sei connesso a un archivio (Drive/OneDrive). I dati sono salvati solo localmente.',
   },
   taxpayer: {
     title: 'Contribuente',
@@ -69,6 +70,7 @@ export default {
     domicileProvince: 'Provincia domicilio',
     address: 'Indirizzo',
     save: 'Salva contribuente',
+    requiredHint: 'Compila almeno codice fiscale, nome e cognome.',
   },
   property: {
     title: 'Immobile',
@@ -96,6 +98,7 @@ export default {
     },
     add: 'Aggiungi immobile',
     empty: 'Nessun immobile registrato.',
+    requiredHint: 'Compila almeno descrizione e codice comune.',
   },
   documents: {
     title: 'Documenti',
