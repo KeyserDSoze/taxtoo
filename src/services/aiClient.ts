@@ -16,6 +16,11 @@
 
 import { AzureOpenAI, OpenAI } from 'openai';
 import type { AppSettings, AiProvider } from '../types';
+import {
+  copilotMsalInstance,
+  COPILOT_SCOPES,
+  COPILOT_ENABLED,
+} from '../config/msal';
 
 export interface AiFile {
   mimeType: string;
@@ -52,7 +57,7 @@ export function isAiConfigured(s?: AppSettings | null): boolean {
     case 'gemini':
       return !!s.geminiKey && !!s.geminiModel;
     case 'copilot_m365':
-      return false; // direct API calls not available yet
+      return COPILOT_ENABLED;
     default:
       return false;
   }
@@ -135,6 +140,49 @@ async function geminiGenerate(
   return (cand?.content?.parts ?? []).map((p: any) => p.text ?? '').join('') ?? '';
 }
 
+// ── Microsoft 365 Copilot (Graph Retrieval API, behind flag) ──────────────────
+// EXPERIMENTAL. Requires the user to hold an M365 Copilot licence and the 2nd app
+// registration consented. The Retrieval API returns grounding extracts from the
+// user's M365 content; we return them as context text. Endpoint/scope may need
+// adjustment when tested with a real licence — kept isolated and flag-gated.
+const COPILOT_RETRIEVAL_URL = 'https://graph.microsoft.com/beta/copilot/retrieval';
+
+async function copilotToken(): Promise<string> {
+  if (!copilotMsalInstance) throw new Error('Copilot non configurato (manca la 2ª app registration).');
+  await copilotMsalInstance.initialize();
+  const accounts = copilotMsalInstance.getAllAccounts();
+  const account = accounts[0];
+  try {
+    const res = account
+      ? await copilotMsalInstance.acquireTokenSilent({ scopes: COPILOT_SCOPES, account })
+      : await copilotMsalInstance.loginPopup({ scopes: COPILOT_SCOPES });
+    return res.accessToken;
+  } catch {
+    const res = await copilotMsalInstance.loginPopup({ scopes: COPILOT_SCOPES });
+    return res.accessToken;
+  }
+}
+
+async function copilotRetrieve(query: string): Promise<string> {
+  const token = await copilotToken();
+  const resp = await fetch(COPILOT_RETRIEVAL_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ queryString: query, dataSource: 'sharePoint', maximumNumberOfResults: 10 }),
+  });
+  if (!resp.ok) {
+    const t = await resp.text().catch(() => '');
+    throw new Error(`Copilot Retrieval error ${resp.status}: ${t}`);
+  }
+  const data = await resp.json();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hits = (data.retrievalHits ?? data.value ?? []) as any[];
+  return hits
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((h: any) => (h.extracts ?? [{ text: h.text }]).map((e: any) => e.text).join('\n'))
+    .join('\n\n');
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /** Single-shot completion with optional files. Returns the model's text. */
@@ -146,9 +194,15 @@ export async function aiComplete(
   json = false
 ): Promise<string> {
   if (settings.aiProvider === 'copilot_m365') {
-    throw new Error(
-      'Microsoft 365 Copilot non è ancora disponibile per le chiamate dirette. Seleziona Azure OpenAI, OpenAI o Gemini.'
-    );
+    if (!COPILOT_ENABLED) {
+      throw new Error(
+        'Microsoft 365 Copilot è dietro flag (VITE_ENABLE_COPILOT) e in fase di test. Usa Azure OpenAI, OpenAI o Gemini.'
+      );
+    }
+    const grounding = await copilotRetrieve(text);
+    return grounding
+      ? `Contenuti rilevanti dai tuoi documenti Microsoft 365 (Copilot Retrieval):\n\n${grounding}`
+      : 'Nessun contenuto rilevante trovato tramite Microsoft 365 Copilot.';
   }
   if (settings.aiProvider === 'gemini') {
     return geminiGenerate(settings, system, text, files, json);
@@ -172,9 +226,16 @@ export async function aiChat(
   messages: ChatTurn[]
 ): Promise<string> {
   if (settings.aiProvider === 'copilot_m365') {
-    throw new Error(
-      'Microsoft 365 Copilot non è ancora disponibile per le chiamate dirette. Seleziona Azure OpenAI, OpenAI o Gemini.'
-    );
+    if (!COPILOT_ENABLED) {
+      throw new Error(
+        'Microsoft 365 Copilot è dietro flag (VITE_ENABLE_COPILOT) e in fase di test. Usa Azure OpenAI, OpenAI o Gemini.'
+      );
+    }
+    const last = messages[messages.length - 1];
+    const grounding = await copilotRetrieve(last?.content ?? '');
+    return grounding
+      ? `Contenuti rilevanti dai tuoi documenti Microsoft 365 (Copilot Retrieval):\n\n${grounding}`
+      : 'Nessun contenuto rilevante trovato tramite Microsoft 365 Copilot.';
   }
   if (settings.aiProvider === 'gemini') {
     const last = messages[messages.length - 1];
