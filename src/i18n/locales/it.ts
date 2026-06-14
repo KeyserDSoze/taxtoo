@@ -101,6 +101,9 @@ export default {
     empty: 'Nessun immobile registrato.',
     requiredHint: 'Compila almeno descrizione e codice comune.',
     verify: 'Segna come verificato',
+    findCode: 'Trova il codice comune dal nome',
+    codeNotFound: 'Comune non trovato nell\'elenco ufficiale. Controlla il nome.',
+    codeLookupError: 'Impossibile caricare l\'elenco dei comuni. Riprova.',
   },
   mef: {
     button: 'Aliquote comunali (MEF)',

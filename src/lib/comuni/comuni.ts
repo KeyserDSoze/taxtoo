@@ -137,3 +137,12 @@ export function findByCatastale(list: Comune[], catastale: string): Comune | und
   const c = catastale.toUpperCase().trim();
   return list.find((x) => x.catastale.toUpperCase() === c);
 }
+
+/** Look up a comune by its (normalized) name — exact match first, then the best search hit. */
+export function findByName(list: Comune[], name: string): Comune | undefined {
+  const q = normalize(name);
+  if (!q) return undefined;
+  const exact = list.find((x) => normalize(x.name) === q);
+  if (exact) return exact;
+  return searchComuni(list, name, 1)[0];
+}

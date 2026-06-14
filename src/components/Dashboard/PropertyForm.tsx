@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Search, Loader2 } from 'lucide-react';
 import type { Property, PropertyUsage } from '../../types';
 import { uid } from '../../lib/utils';
 import { Button, Field, Input, Select } from '../ui/ui';
 import ComuneAutocomplete from '../ui/ComuneAutocomplete';
+import { loadComuni, findByName } from '../../lib/comuni/comuni';
 
 interface Props {
   taxpayerFiscalCode: string;
@@ -32,6 +34,27 @@ export default function PropertyForm({ taxpayerFiscalCode, initial, onSave, onCa
 
   const set = (k: keyof Property, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
   const [error, setError] = useState<string | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
+  const lookupCode = async () => {
+    if (!form.municipality?.trim()) return;
+    setLookingUp(true);
+    setLookupError(null);
+    try {
+      const list = await loadComuni();
+      const match = findByName(list, form.municipality);
+      if (match?.catastale) {
+        setForm((f) => ({ ...f, municipality: match.name, municipalityCode: match.catastale }));
+      } else {
+        setLookupError(t('property.codeNotFound'));
+      }
+    } catch {
+      setLookupError(t('property.codeLookupError'));
+    } finally {
+      setLookingUp(false);
+    }
+  };
 
   const submit = () => {
     if (!form.label || !form.municipalityCode) {
@@ -91,12 +114,26 @@ export default function PropertyForm({ taxpayerFiscalCode, initial, onSave, onCa
           />
         </Field>
         <Field label={t('property.municipalityCode')}>
-          <Input
-            value={form.municipalityCode ?? ''}
-            onChange={(e) => set('municipalityCode', e.target.value.toUpperCase())}
-            placeholder="H501"
-            autoCapitalize="characters"
-          />
+          <div className="flex gap-2">
+            <Input
+              value={form.municipalityCode ?? ''}
+              onChange={(e) => set('municipalityCode', e.target.value.toUpperCase())}
+              placeholder="H501"
+              autoCapitalize="characters"
+              className="flex-1"
+            />
+            <button
+              type="button"
+              onClick={lookupCode}
+              disabled={lookingUp || !form.municipality?.trim()}
+              title={t('property.findCode')}
+              aria-label={t('property.findCode')}
+              className="shrink-0 inline-flex items-center justify-center rounded-xl px-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+            >
+              {lookingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            </button>
+          </div>
+          {lookupError && <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">{lookupError}</p>}
         </Field>
         <Field label={t('property.category')}>
           <Input value={form.category ?? ''} onChange={(e) => set('category', e.target.value)} placeholder="A/2" />

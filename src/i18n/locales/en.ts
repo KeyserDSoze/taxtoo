@@ -101,6 +101,9 @@ export default {
     empty: 'No property registered.',
     requiredHint: 'Fill in at least description and codice comune.',
     verify: 'Mark as verified',
+    findCode: 'Find the codice comune from the name',
+    codeNotFound: 'Municipality not found in the official list. Check the name.',
+    codeLookupError: 'Could not load the municipalities list. Try again.',
   },
   mef: {
     button: 'Municipal rates (MEF)',
