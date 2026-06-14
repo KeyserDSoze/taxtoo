@@ -100,6 +100,7 @@ export default {
     add: 'Add property',
     empty: 'No property registered.',
     requiredHint: 'Fill in at least description and codice comune.',
+    verify: 'Mark as verified',
   },
   propertyImport: {
     button: 'Import from document',

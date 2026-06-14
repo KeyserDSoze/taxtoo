@@ -100,6 +100,7 @@ export default {
     add: 'Aggiungi immobile',
     empty: 'Nessun immobile registrato.',
     requiredHint: 'Compila almeno descrizione e codice comune.',
+    verify: 'Segna come verificato',
   },
   propertyImport: {
     button: 'Importa da documento',

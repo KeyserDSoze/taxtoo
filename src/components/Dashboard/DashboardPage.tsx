@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Plus, User, Home, FileText, Calculator, Cloud, Trash2, Loader2, FileUp } from 'lucide-react';
+import { Plus, User, Home, FileText, Calculator, Cloud, Trash2, Loader2, FileUp, Pencil, CheckCircle2 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { ensureTaxpayerFolder, ensurePropertyFolders, uploadFile } from '../../services/storage';
 import type { Taxpayer, Property } from '../../types';
@@ -53,6 +53,7 @@ export default function DashboardPage() {
 
   const [showTaxpayerForm, setShowTaxpayerForm] = useState(false);
   const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
   const [showPropertyImport, setShowPropertyImport] = useState(false);
   const [savingTaxpayer, setSavingTaxpayer] = useState(false);
   const [taxpayerError, setTaxpayerError] = useState<string | null>(null);
@@ -94,16 +95,14 @@ export default function DashboardPage() {
     }
   };
 
-  // Save the property locally, then persist property.json to the user's Drive.
-  const handleSaveProperty = async (p: Property) => {
-    addProperty(p);
-    setShowPropertyForm(false);
-    setPropertyError(null);
+  // Persist a property's property.json to the user's Drive.
+  const persistProperty = async (p: Property) => {
     if (!user) {
       setPropertyError(t('dashboard.notConnected'));
       return;
     }
     setSavingProperty(true);
+    setPropertyError(null);
     try {
       const propertyKey = `${p.municipalityCode}_${p.id}`;
       const folders = await ensurePropertyFolders(user, p.taxpayerFiscalCode, propertyKey);
@@ -120,6 +119,25 @@ export default function DashboardPage() {
     } finally {
       setSavingProperty(false);
     }
+  };
+
+  // Save (create or edit) a property, then persist to Drive.
+  const handleSaveProperty = async (p: Property) => {
+    const isEdit = properties.some((x) => x.id === p.id);
+    if (isEdit) updateProperty(p.id, p);
+    else addProperty(p);
+    setShowPropertyForm(false);
+    setEditingPropertyId(null);
+    await persistProperty(p);
+  };
+
+  // Mark a property as verified (data confirmed by the user).
+  const handleVerifyProperty = async (propertyId: string) => {
+    const p = properties.find((x) => x.id === propertyId);
+    if (!p) return;
+    const updated = { ...p, status: 'verified' as const, updatedAt: new Date().toISOString() };
+    updateProperty(propertyId, { status: 'verified', updatedAt: updated.updatedAt });
+    await persistProperty(updated);
   };
 
   // Mark a property as sold (it leaves the active list) and persist to Drive.
@@ -314,34 +332,73 @@ export default function DashboardPage() {
             </Card>
           ) : (
             <div className="grid gap-2">
-              {activeProperties.map((p) => (
-                <Card key={p.id} className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
-                      <Home className="w-4.5 h-4.5 text-emerald-500" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-sm">{p.label}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {p.municipality} · <span className="font-mono">{p.municipalityCode}</span> ·{' '}
-                        {t(`property.usage.${p.usageType}` as Parameters<typeof t>[0])}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge tone="amber">
-                      {t(`property.status.${p.status}` as Parameters<typeof t>[0])}
-                    </Badge>
+              {activeProperties.map((p) =>
+                editingPropertyId === p.id ? (
+                  <Card key={p.id} className="p-4">
+                    <PropertyForm
+                      taxpayerFiscalCode={active.fiscalCode}
+                      initial={p}
+                      onSave={handleSaveProperty}
+                      onCancel={() => setEditingPropertyId(null)}
+                    />
+                  </Card>
+                ) : (
+                  <Card key={p.id} className="p-4 flex items-center justify-between">
                     <button
-                      onClick={() => removeProperty(p.id)}
-                      className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                      aria-label={t('common.delete')}
+                      type="button"
+                      className="flex items-center gap-3 text-left flex-1 min-w-0"
+                      onClick={() => {
+                        setEditingPropertyId(p.id);
+                        setShowPropertyForm(false);
+                      }}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center shrink-0">
+                        <Home className="w-4.5 h-4.5 text-emerald-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm truncate">{p.label}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {p.municipality} · <span className="font-mono">{p.municipalityCode}</span> ·{' '}
+                          {t(`property.usage.${p.usageType}` as Parameters<typeof t>[0])}
+                        </div>
+                      </div>
                     </button>
-                  </div>
-                </Card>
-              ))}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge tone={p.status === 'verified' ? 'green' : 'amber'}>
+                        {t(`property.status.${p.status}` as Parameters<typeof t>[0])}
+                      </Badge>
+                      {p.status !== 'verified' && (
+                        <button
+                          onClick={() => handleVerifyProperty(p.id)}
+                          className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"
+                          title={t('property.verify')}
+                          aria-label={t('property.verify')}
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setEditingPropertyId(p.id);
+                          setShowPropertyForm(false);
+                        }}
+                        className="p-2 text-slate-400 hover:text-sky-500 transition-colors"
+                        title={t('common.edit')}
+                        aria-label={t('common.edit')}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => removeProperty(p.id)}
+                        className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                        aria-label={t('common.delete')}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </Card>
+                )
+              )}
             </div>
           )}
         </div>
