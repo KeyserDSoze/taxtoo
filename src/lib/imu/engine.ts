@@ -49,6 +49,26 @@ export function coefficientForCategory(category?: string): number {
   return CATEGORY_COEFFICIENTS[group] ?? 160;
 }
 
+/**
+ * Luxury main-home categories (A/1 manors, A/8 villas, A/9 castles): these are the
+ * ONLY abitazioni principali still subject to IMU. Every other main home is exempt.
+ */
+export const LUXURY_CATEGORIES = ['A/1', 'A/8', 'A/9'];
+
+export function isLuxuryCategory(category?: string): boolean {
+  if (!category) return false;
+  return LUXURY_CATEGORIES.includes(category.toUpperCase().trim());
+}
+
+/**
+ * In Italy the abitazione principale is exempt from IMU unless it falls in a luxury
+ * category (A/1, A/8, A/9). The engine still computes the theoretical amount; this
+ * flag tells the UI to present it as "esente prima casa".
+ */
+export function isMainHomeExempt(usage: PropertyUsage, category?: string): boolean {
+  return usage === 'main_home' && !isLuxuryCategory(category);
+}
+
 export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }

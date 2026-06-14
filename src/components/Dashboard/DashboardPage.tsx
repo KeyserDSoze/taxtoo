@@ -336,14 +336,17 @@ export default function DashboardPage() {
             <div className="grid gap-2">
               {activeProperties.map((p) =>
                 editingPropertyId === p.id ? (
-                  <Card key={p.id} className="p-4">
-                    <PropertyForm
-                      taxpayerFiscalCode={active.fiscalCode}
-                      initial={p}
-                      onSave={handleSaveProperty}
-                      onCancel={() => setEditingPropertyId(null)}
-                    />
-                  </Card>
+                  <div key={p.id} className="space-y-2">
+                    <Card className="p-4">
+                      <PropertyForm
+                        taxpayerFiscalCode={active.fiscalCode}
+                        initial={p}
+                        onSave={handleSaveProperty}
+                        onCancel={() => setEditingPropertyId(null)}
+                      />
+                    </Card>
+                    <MefRatesImport property={p} onClose={() => setEditingPropertyId(null)} />
+                  </div>
                 ) : (
                   <div key={p.id} className="space-y-2">
                   <Card className="p-4 flex items-center justify-between">
