@@ -186,7 +186,11 @@ export default function MefRatesImport({ property, onClose }: Props) {
           }
           count++;
           setProgress(Math.round((count / years.length) * 100));
-          setRates({ ...next });
+          // Persist each year immediately to the store (and thus localStorage),
+          // so a refresh never loses an already-extracted year.
+          const snapshot = { ...next };
+          setRates(snapshot);
+          updateProperty(property.id, { ratesByYear: snapshot });
         }
       );
 

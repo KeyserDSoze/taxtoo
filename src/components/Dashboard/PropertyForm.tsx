@@ -75,8 +75,10 @@ export default function PropertyForm({ taxpayerFiscalCode, initial, onSave, onCa
       usageType: form.usageType as PropertyUsage,
       isMainHome: form.usageType === 'main_home',
       acquisitionDate: form.acquisitionDate,
-      disposalDate: form.disposalDate,
-      notes: form.notes,
+      disposalDate: form.disposalDate ?? initial?.disposalDate,
+      // Preserve data not managed by this form (e.g. imported municipal rates).
+      ratesByYear: initial?.ratesByYear,
+      notes: form.notes ?? initial?.notes,
       status: initial?.status ?? 'to_verify',
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
