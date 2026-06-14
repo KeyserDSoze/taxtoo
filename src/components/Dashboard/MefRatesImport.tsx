@@ -10,14 +10,18 @@ import {
   Pencil,
   Eye,
   ShieldCheck,
+  RefreshCw,
+  Globe,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import {
   fetchComuneResolutions,
+  fetchComuneYear,
   isMefConfigured,
   regionSlug,
   type MefYearResult,
 } from '../../lib/mef/mef';
+import { searchAliquotaOnline, isMefSearchConfigured } from '../../lib/mef/search';
 import { interpretAliquote } from '../../services/ai';
 import { isAiConfigured } from '../../services/aiClient';
 import { loadComuni, findByCatastale, type Comune } from '../../lib/comuni/comuni';
@@ -51,13 +55,17 @@ export default function MefRatesImport({ property, onClose }: Props) {
   const [draftDeduction, setDraftDeduction] = useState('');
   const [uploadingYear, setUploadingYear] = useState<number | null>(null);
   const [viewingId, setViewingId] = useState<string | null>(null);
+  const [refreshingYear, setRefreshingYear] = useState<number | null>(null);
+  const [searchingYear, setSearchingYear] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const uploadTargetYear = useRef<number | null>(null);
   const foldersRef = useRef<PropertyFolders | null>(null);
+  const comuneRef = useRef<Comune | null>(null);
 
   const aiOk = isAiConfigured(settings);
   const mefOk = isMefConfigured();
+  const searchOk = isMefSearchConfigured();
   const fromYear = property.acquisitionDate
     ? new Date(property.acquisitionDate).getFullYear()
     : new Date().getFullYear();
@@ -74,6 +82,14 @@ export default function MefRatesImport({ property, onClose }: Props) {
     const f = await ensurePropertyFolders(user, property.taxpayerFiscalCode, propertyKey);
     foldersRef.current = f;
     return f;
+  };
+
+  const getComune = async (): Promise<Comune | undefined> => {
+    if (comuneRef.current) return comuneRef.current;
+    const comuni = await loadComuni();
+    const c = findByCatastale(comuni, property.municipalityCode);
+    if (c) comuneRef.current = c;
+    return c;
   };
 
   const persistRates = async (next: Record<number, MunicipalRateYear>) => {
@@ -291,6 +307,90 @@ export default function MefRatesImport({ property, onClose }: Props) {
     }
   };
 
+  // ── Per-year refresh from MEF (force re-fetch a single year) ──────────────
+  const refreshYear = async (year: number) => {
+    if (!user || !settings) return;
+    setRefreshingYear(year);
+    setError(null);
+    try {
+      const comune = await getComune();
+      if (!comune) {
+        setError(t('mef.noComune'));
+        return;
+      }
+      const res = await fetchComuneYear(property.municipalityCode, comune.regione, year);
+      const next = { ...rates };
+      if (res.status === 'found' && res.docs[0]) {
+        const folders = await getFolders();
+        const doc = res.docs[0];
+        const file = new File([doc.blob], doc.filename, { type: 'application/pdf' });
+        const driveFileId = await uploadFile(
+          user,
+          doc.filename,
+          doc.blob,
+          'application/pdf',
+          folders.ratesId
+        );
+        const ali = await interpretAliquote(file, year, settings);
+        next[year] = {
+          year,
+          perMille: ali.perMilleByUsage[property.usageType],
+          perMilleByUsage: ali.perMilleByUsage,
+          deduction: ali.deduction,
+          status: 'found',
+          sourceFile: doc.filename,
+          driveFileId,
+        };
+      } else {
+        next[year] = { year, status: res.status, note: res.message };
+      }
+      await persistRates(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setRefreshingYear(null);
+    }
+  };
+
+  // ── Per-year online search fallback (keyless web search + AI) ─────────────
+  const searchYear = async (year: number) => {
+    if (!user || !settings) return;
+    setSearchingYear(year);
+    setError(null);
+    try {
+      const comune = await getComune();
+      const res = await searchAliquotaOnline(
+        settings,
+        comune?.name ?? property.municipality,
+        comune?.sigla ?? '',
+        year,
+        property.usageType
+      );
+      const next = { ...rates };
+      if (!res.notFound && res.perMille != null) {
+        next[year] = {
+          year,
+          perMille: res.perMille,
+          deduction: res.deduction,
+          status: 'web',
+          sourceUrl: res.sourceUrl,
+          note: res.explanation,
+        };
+      } else {
+        next[year] = {
+          year,
+          status: 'not_found',
+          note: res.explanation || t('mef.searchNoResult'),
+        };
+      }
+      await persistRates(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setSearchingYear(null);
+    }
+  };
+
   // ── View a saved resolution PDF from Drive ────────────────────────────────
   const viewDoc = async (driveFileId: string) => {
     if (!user) return;
@@ -313,6 +413,7 @@ export default function MefRatesImport({ property, onClose }: Props) {
       return <Badge tone="sky">{t('mef.source.manual')}</Badge>;
     if (r.status === 'inherited')
       return <Badge tone="sky">{t('mef.row.inherited', { year: r.inheritedFrom })}</Badge>;
+    if (r.status === 'web') return <Badge tone="sky">{t('mef.row.web')}</Badge>;
     const tone =
       r.status === 'found'
         ? 'green'
@@ -408,6 +509,18 @@ export default function MefRatesImport({ property, onClose }: Props) {
                         {r.driveFileId && <Eye className="w-3 h-3 shrink-0" />}
                       </button>
                     )}
+                    {r?.sourceUrl && !r.sourceFile && (
+                      <a
+                        href={r.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-xs text-sky-600 dark:text-sky-400 hover:underline truncate max-w-[200px]"
+                        title={r.sourceUrl}
+                      >
+                        <Globe className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{t('mef.webSource')}</span>
+                      </a>
+                    )}
                   </div>
                 </div>
 
@@ -437,6 +550,34 @@ export default function MefRatesImport({ property, onClose }: Props) {
 
                   {/* Actions */}
                   <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => refreshYear(year)}
+                      disabled={refreshingYear === year || !mefOk || !aiOk}
+                      title={t('mef.refreshYear')}
+                      aria-label={t('mef.refreshYear')}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-sky-500 hover:bg-white dark:hover:bg-slate-700 transition-colors disabled:opacity-40"
+                    >
+                      {refreshingYear === year ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => searchYear(year)}
+                      disabled={searchingYear === year || !searchOk || !aiOk}
+                      title={searchOk ? t('mef.searchYear') : t('mef.searchProxyMissing')}
+                      aria-label={t('mef.searchYear')}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-slate-700 transition-colors disabled:opacity-40"
+                    >
+                      {searchingYear === year ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Globe className="w-4 h-4" />
+                      )}
+                    </button>
                     <button
                       type="button"
                       onClick={() => pickFile(year)}

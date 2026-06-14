@@ -149,3 +149,31 @@ export async function fetchComuneResolutions(
   }
   return results;
 }
+
+/** Fetch the MEF resolution for a single comune/year (used by the per-year refresh). */
+export async function fetchComuneYear(
+  catastale: string,
+  regione: string,
+  year: number
+): Promise<MefYearResult> {
+  const slug = regionSlug(regione);
+  if (!slug) {
+    return {
+      year,
+      status: 'region_unavailable',
+      docs: [],
+      message: 'Regione non presente nel dataset IMU del MEF (tributo locale autonomo).',
+    };
+  }
+  if (!PROXY_BASE) {
+    return { year, status: 'error', docs: [], message: 'Proxy MEF non configurato (VITE_MEF_PROXY).' };
+  }
+  try {
+    const docs = await fetchYear(slug, year, catastale);
+    return docs.length
+      ? { year, status: 'found', docs }
+      : { year, status: 'not_found', docs: [], message: 'Nessuna delibera trovata per questo comune/anno.' };
+  } catch (e) {
+    return { year, status: 'error', docs: [], message: e instanceof Error ? e.message : 'Errore' };
+  }
+}
