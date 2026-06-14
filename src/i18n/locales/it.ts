@@ -116,7 +116,7 @@ export default {
   documents: {
     title: 'Documenti',
     upload: 'Carica documento',
-    dropHint: 'Trascina qui un file o clicca per selezionarlo',
+    dropHint: 'Trascina qui un file o clicca per selezionarlo (PDF, immagine, Excel, CSV, Word, OpenDocument)',
     type: 'Tipo documento',
     types: {
       visura: 'Visura catastale',

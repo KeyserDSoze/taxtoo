@@ -4,7 +4,7 @@ import { Upload, Sparkles, FileText, Loader2, CheckCircle2 } from 'lucide-react'
 import { useStore } from '../../store/useStore';
 import { Badge, Button, Card, Field, SectionTitle, Select } from '../ui/ui';
 import { interpretDocument, type InterpretedDocument } from '../../services/ai';
-import { isAiConfigured } from '../../services/aiClient';
+import { isAiConfigured, SUPPORTED_DOC_ACCEPT } from '../../services/aiClient';
 import { ensurePropertyFolders, ensureTaxpayerFolder, uploadFile } from '../../services/storage';
 import { uid } from '../../lib/utils';
 import type { TaxDocument, TaxDocumentType } from '../../types';
@@ -139,7 +139,7 @@ export default function DocumentsPage() {
           <input
             ref={fileRef}
             type="file"
-            accept="application/pdf,image/*"
+            accept={SUPPORTED_DOC_ACCEPT}
             className="hidden"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />

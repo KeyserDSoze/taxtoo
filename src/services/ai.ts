@@ -8,7 +8,7 @@
  * Documents are read directly by the multimodal model — no separate OCR step.
  */
 
-import { aiComplete, aiChat, fileToBase64, type AiFile } from './aiClient';
+import { aiComplete, aiChat, prepareDocument } from './aiClient';
 import type { AppSettings, ChatMessage, LocalTaxRow, TaxDocumentType } from '../types';
 
 const LANG_NAMES: Record<string, string> = {
@@ -21,10 +21,6 @@ const LANG_NAMES: Record<string, string> = {
 
 function languageName(code?: string): string {
   return LANG_NAMES[code ?? 'it'] ?? 'Italian';
-}
-
-async function fileForAi(file: Blob): Promise<AiFile> {
-  return { mimeType: file.type || 'application/octet-stream', base64: await fileToBase64(file) };
 }
 
 function parseJson<T>(content: string, fallback: T): T {
@@ -49,7 +45,7 @@ export interface InterpretedDocument {
 }
 
 export async function interpretDocument(
-  file: Blob,
+  file: File,
   settings: AppSettings
 ): Promise<InterpretedDocument> {
   const lang = languageName(settings.explanationLanguage ?? settings.language);
@@ -71,7 +67,7 @@ export async function interpretDocument(
     settings,
     system,
     'Analizza il documento allegato ed estrai i dati fiscali richiesti.',
-    [await fileForAi(file)],
+    [await prepareDocument(file)],
     true
   );
   const parsed = parseJson<InterpretedDocument>(content, {
@@ -114,7 +110,7 @@ export interface PropertyDocInterpretation {
 }
 
 export async function interpretPropertyDocument(
-  file: Blob,
+  file: File,
   settings: AppSettings
 ): Promise<PropertyDocInterpretation> {
   const lang = languageName(settings.explanationLanguage ?? settings.language);
@@ -140,7 +136,7 @@ export async function interpretPropertyDocument(
     settings,
     system,
     'Analizza il documento immobiliare allegato ed estrai gli immobili.',
-    [await fileForAi(file)],
+    [await prepareDocument(file)],
     true
   );
   const parsed = parseJson<PropertyDocInterpretation>(content, {

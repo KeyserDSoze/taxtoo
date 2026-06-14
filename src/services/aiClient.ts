@@ -15,6 +15,8 @@
  */
 
 import { AzureOpenAI, OpenAI } from 'openai';
+import * as XLSX from 'xlsx';
+import { unzipSync, strFromU8 } from 'fflate';
 import type { AppSettings, AiProvider } from '../types';
 import {
   copilotMsalInstance,
@@ -36,6 +38,91 @@ export async function fileToBase64(blob: Blob): Promise<string> {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
   }
   return btoa(binary);
+}
+
+// ── Document preparation ──────────────────────────────────────────────────────
+// Different file types are handled differently:
+//  - images    → sent natively (image_url / inlineData)
+//  - PDF        → sent natively (OpenAI "file" part / Gemini inlineData)
+//  - csv/txt    → read as text
+//  - xlsx/xls   → parsed to CSV text (SheetJS)
+//  - docx/odt   → unzipped, text extracted from the XML body
+// so the model always receives something it can read.
+
+export type PreparedDoc =
+  | { kind: 'image'; mimeType: string; base64: string; filename: string }
+  | { kind: 'pdf'; mimeType: string; base64: string; filename: string }
+  | { kind: 'text'; text: string; filename: string };
+
+/** Accept attribute for file inputs across the app. */
+export const SUPPORTED_DOC_ACCEPT =
+  'image/*,application/pdf,.pdf,.csv,text/csv,.txt,.xlsx,.xls,' +
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,' +
+  '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,' +
+  '.odt,application/vnd.oasis.opendocument.text';
+
+function stripXml(xml: string): string {
+  return xml
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function unzipEntry(buf: Uint8Array, entry: string): string | null {
+  try {
+    const files = unzipSync(buf);
+    const data = files[entry];
+    return data ? strFromU8(data) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function prepareDocument(file: File): Promise<PreparedDoc> {
+  const name = (file.name || '').toLowerCase();
+  const type = file.type || '';
+  const ext = name.split('.').pop() ?? '';
+
+  // Images
+  if (type.startsWith('image/')) {
+    return { kind: 'image', mimeType: type, base64: await fileToBase64(file), filename: file.name };
+  }
+
+  // PDF — sent natively to the model
+  if (type === 'application/pdf' || ext === 'pdf') {
+    return { kind: 'pdf', mimeType: 'application/pdf', base64: await fileToBase64(file), filename: file.name };
+  }
+
+  // Spreadsheets → CSV text per sheet
+  if (
+    ext === 'xlsx' ||
+    ext === 'xls' ||
+    type.includes('spreadsheet') ||
+    type.includes('excel')
+  ) {
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    const text = wb.SheetNames.map(
+      (n) => `# ${n}\n${XLSX.utils.sheet_to_csv(wb.Sheets[n])}`
+    ).join('\n\n');
+    return { kind: 'text', text, filename: file.name };
+  }
+
+  // Word .docx → text from word/document.xml
+  if (ext === 'docx' || type.includes('wordprocessingml')) {
+    const xml = unzipEntry(new Uint8Array(await file.arrayBuffer()), 'word/document.xml');
+    return { kind: 'text', text: xml ? stripXml(xml) : '', filename: file.name };
+  }
+
+  // OpenDocument .odt → text from content.xml
+  if (ext === 'odt' || type.includes('opendocument.text')) {
+    const xml = unzipEntry(new Uint8Array(await file.arrayBuffer()), 'content.xml');
+    return { kind: 'text', text: xml ? stripXml(xml) : '', filename: file.name };
+  }
+
+  // CSV / plain text / anything else readable as text
+  const text = await file.text().catch(() => '');
+  return { kind: 'text', text, filename: file.name };
 }
 
 /** Human label for a provider (for UI). */
@@ -86,15 +173,28 @@ function openAiModel(s: AppSettings): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function openAiUserContent(text: string, files: AiFile[]): any[] {
-  const parts: unknown[] = [{ type: 'text', text }];
-  for (const f of files) {
-    // gpt-4o accepts images as image_url data URLs. PDFs work best with Gemini.
-    parts.push({
-      type: 'image_url',
-      image_url: { url: `data:${f.mimeType};base64,${f.base64}`, detail: 'auto' },
-    });
+function openAiUserContent(text: string, docs: PreparedDoc[]): any[] {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const parts: any[] = [];
+  let prompt = text;
+  for (const d of docs) {
+    if (d.kind === 'image') {
+      parts.push({
+        type: 'image_url',
+        image_url: { url: `data:${d.mimeType};base64,${d.base64}`, detail: 'auto' },
+      });
+    } else if (d.kind === 'pdf') {
+      // OpenAI / Azure chat completions accept PDFs as a "file" content part.
+      parts.push({
+        type: 'file',
+        file: { filename: d.filename, file_data: `data:application/pdf;base64,${d.base64}` },
+      });
+    } else {
+      // Extracted text (csv/xlsx/docx/odt) folded into the prompt.
+      prompt += `\n\n--- ${d.filename} ---\n${d.text.slice(0, 20000)}`;
+    }
   }
+  parts.unshift({ type: 'text', text: prompt });
   return parts;
 }
 
@@ -103,7 +203,7 @@ async function geminiGenerate(
   s: AppSettings,
   system: string,
   text: string,
-  files: AiFile[],
+  docs: PreparedDoc[],
   json: boolean,
   history: ChatTurn[] = []
 ): Promise<string> {
@@ -113,9 +213,17 @@ async function geminiGenerate(
     role: h.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: h.content }],
   }));
+  let prompt = text;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const parts: any[] = [{ text }];
-  for (const f of files) parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
+  const parts: any[] = [];
+  for (const d of docs) {
+    if (d.kind === 'image' || d.kind === 'pdf') {
+      parts.push({ inlineData: { mimeType: d.mimeType, data: d.base64 } });
+    } else {
+      prompt += `\n\n--- ${d.filename} ---\n${d.text.slice(0, 20000)}`;
+    }
+  }
+  parts.unshift({ text: prompt });
   contents.push({ role: 'user', parts });
 
   const body = {
@@ -185,12 +293,12 @@ async function copilotRetrieve(query: string): Promise<string> {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/** Single-shot completion with optional files. Returns the model's text. */
+/** Single-shot completion with optional documents. Returns the model's text. */
 export async function aiComplete(
   settings: AppSettings,
   system: string,
   text: string,
-  files: AiFile[] = [],
+  docs: PreparedDoc[] = [],
   json = false
 ): Promise<string> {
   if (settings.aiProvider === 'copilot_m365') {
@@ -205,14 +313,14 @@ export async function aiComplete(
       : 'Nessun contenuto rilevante trovato tramite Microsoft 365 Copilot.';
   }
   if (settings.aiProvider === 'gemini') {
-    return geminiGenerate(settings, system, text, files, json);
+    return geminiGenerate(settings, system, text, docs, json);
   }
   const client = openAiClient(settings);
   const response = await client.chat.completions.create({
     model: openAiModel(settings),
     messages: [
       { role: 'system', content: system },
-      { role: 'user', content: openAiUserContent(text, files) },
+      { role: 'user', content: openAiUserContent(text, docs) },
     ],
     ...(json ? { response_format: { type: 'json_object' as const } } : {}),
   });

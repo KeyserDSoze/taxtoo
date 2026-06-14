@@ -6,7 +6,7 @@ import {
   interpretPropertyDocument,
   type PropertyDocInterpretation,
 } from '../../services/ai';
-import { isAiConfigured } from '../../services/aiClient';
+import { isAiConfigured, SUPPORTED_DOC_ACCEPT } from '../../services/aiClient';
 import { uid } from '../../lib/utils';
 import { Badge, Button, Card, Input } from '../ui/ui';
 import type { Property, PropertyUsage } from '../../types';
@@ -122,7 +122,7 @@ export default function PropertyImport({
       <input
         ref={fileRef}
         type="file"
-        accept="application/pdf,image/*"
+        accept={SUPPORTED_DOC_ACCEPT}
         className="hidden"
         onChange={(e) => setFile(e.target.files?.[0] ?? null)}
       />

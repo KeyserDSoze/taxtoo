@@ -116,7 +116,7 @@ export default {
   documents: {
     title: 'Documents',
     upload: 'Upload document',
-    dropHint: 'Drop a file here or click to select',
+    dropHint: 'Drop a file here or click to select (PDF, image, Excel, CSV, Word, OpenDocument)',
     type: 'Document type',
     types: {
       visura: 'Visura catastale',
