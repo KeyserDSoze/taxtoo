@@ -5,9 +5,13 @@ import './index.css';
 import './i18n/index';
 import App from './App.tsx';
 import { installAuthRetryInterceptor } from './services/tokenManager';
+import { preloadComuni } from './lib/comuni/comuni';
 
 // Install the global 401/403 auto-refresh-and-retry interceptor for Drive/Graph calls.
 installAuthRetryInterceptor();
+
+// Preload the Italian comuni dataset into memory/localStorage for instant lookups.
+preloadComuni();
 
 // On native (APK) or Electron, unregister any lingering Service Workers.
 // SWs make no sense there and can serve stale cached assets.

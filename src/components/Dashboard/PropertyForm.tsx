@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Property, PropertyUsage } from '../../types';
 import { uid } from '../../lib/utils';
 import { Button, Field, Input, Select } from '../ui/ui';
+import ComuneAutocomplete from '../ui/ComuneAutocomplete';
 
 interface Props {
   taxpayerFiscalCode: string;
@@ -76,12 +77,23 @@ export default function PropertyForm({ taxpayerFiscalCode, initial, onSave, onCa
           </Select>
         </Field>
         <Field label={t('property.municipality')}>
-          <Input value={form.municipality ?? ''} onChange={(e) => set('municipality', e.target.value)} placeholder="Roma" />
+          <ComuneAutocomplete
+            value={form.municipality ?? ''}
+            placeholder="Roma"
+            onChange={(text) => set('municipality', text)}
+            onSelect={(c) =>
+              setForm((f) => ({
+                ...f,
+                municipality: c.name,
+                municipalityCode: c.catastale,
+              }))
+            }
+          />
         </Field>
         <Field label={t('property.municipalityCode')}>
           <Input
             value={form.municipalityCode ?? ''}
-            onChange={(e) => set('municipalityCode', e.target.value)}
+            onChange={(e) => set('municipalityCode', e.target.value.toUpperCase())}
             placeholder="H501"
             autoCapitalize="characters"
           />
