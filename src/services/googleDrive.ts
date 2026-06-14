@@ -81,7 +81,8 @@ export async function ensurePropertyFolders(
   const extractionsId = await findOrCreateFolder(accessToken, 'extractions', propertyFolderId);
   const calculationsId = await findOrCreateFolder(accessToken, 'calculations', propertyFolderId);
   const f24Id = await findOrCreateFolder(accessToken, 'f24', propertyFolderId);
-  return { taxpayerFolderId, propertyFolderId, documentsId, extractionsId, calculationsId, f24Id };
+  const ratesId = await findOrCreateFolder(accessToken, 'aliquote', propertyFolderId);
+  return { taxpayerFolderId, propertyFolderId, documentsId, extractionsId, calculationsId, f24Id, ratesId };
 }
 
 // ---------- File upload (multipart) ----------

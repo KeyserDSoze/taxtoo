@@ -77,6 +77,21 @@ export type PropertyStatus =
   | 'archived'
   | 'sold';
 
+/** A municipal IMU rate for a given year, extracted from the MEF resolution (delibera). */
+export interface MunicipalRateYear {
+  year: number;
+  /** Rate (in ‰) applicable to the property's usage, picked by the AI. */
+  perMille?: number;
+  /** Optional per-usage breakdown the AI extracted. */
+  perMilleByUsage?: Partial<Record<PropertyUsage, number>>;
+  /** Detrazione abitazione principale (€), if any. */
+  deduction?: number;
+  note?: string;
+  status: 'found' | 'not_found' | 'region_unavailable' | 'error';
+  sourceFile?: string; // MEF filename
+  driveFileId?: string; // saved resolution PDF on the user's Drive
+}
+
 export interface Property {
   id: string;
   taxpayerFiscalCode: string;
@@ -93,6 +108,8 @@ export interface Property {
   hasReduction?: boolean;
   acquisitionDate?: string; // ISO yyyy-mm-dd — data da cui si è proprietari
   disposalDate?: string; // ISO yyyy-mm-dd — data di vendita/cessione
+  /** Per-year municipal IMU rates imported from the MEF, keyed by year. */
+  ratesByYear?: Record<number, MunicipalRateYear>;
   notes?: string;
   status: PropertyStatus;
   createdAt: string;
@@ -206,4 +223,5 @@ export interface PropertyFolders {
   extractionsId: string;
   calculationsId: string;
   f24Id: string;
+  ratesId: string;
 }

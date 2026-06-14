@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Plus, User, Home, FileText, Calculator, Cloud, Trash2, Loader2, FileUp, Pencil, CheckCircle2 } from 'lucide-react';
+import { Plus, User, Home, FileText, Calculator, Cloud, Trash2, Loader2, FileUp, Pencil, CheckCircle2, Building2 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { ensureTaxpayerFolder, ensurePropertyFolders, uploadFile } from '../../services/storage';
 import type { Taxpayer, Property } from '../../types';
@@ -9,6 +9,7 @@ import { Badge, Button, Card, SectionTitle } from '../ui/ui';
 import TaxpayerForm from './TaxpayerForm';
 import PropertyForm from './PropertyForm';
 import PropertyImport from './PropertyImport';
+import MefRatesImport from './MefRatesImport';
 
 function Stat({
   icon: Icon,
@@ -55,6 +56,7 @@ export default function DashboardPage() {
   const [showPropertyForm, setShowPropertyForm] = useState(false);
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
   const [showPropertyImport, setShowPropertyImport] = useState(false);
+  const [ratesPropertyId, setRatesPropertyId] = useState<string | null>(null);
   const [savingTaxpayer, setSavingTaxpayer] = useState(false);
   const [taxpayerError, setTaxpayerError] = useState<string | null>(null);
   const [savingProperty, setSavingProperty] = useState(false);
@@ -343,7 +345,8 @@ export default function DashboardPage() {
                     />
                   </Card>
                 ) : (
-                  <Card key={p.id} className="p-4 flex items-center justify-between">
+                  <div key={p.id} className="space-y-2">
+                  <Card className="p-4 flex items-center justify-between">
                     <button
                       type="button"
                       className="flex items-center gap-3 text-left flex-1 min-w-0"
@@ -367,6 +370,14 @@ export default function DashboardPage() {
                       <Badge tone={p.status === 'verified' ? 'green' : 'amber'}>
                         {t(`property.status.${p.status}` as Parameters<typeof t>[0])}
                       </Badge>
+                      <button
+                        onClick={() => setRatesPropertyId(ratesPropertyId === p.id ? null : p.id)}
+                        className="p-2 text-slate-400 hover:text-sky-500 transition-colors"
+                        title={t('mef.button')}
+                        aria-label={t('mef.button')}
+                      >
+                        <Building2 className="w-4 h-4" />
+                      </button>
                       {p.status !== 'verified' && (
                         <button
                           onClick={() => handleVerifyProperty(p.id)}
@@ -397,6 +408,10 @@ export default function DashboardPage() {
                       </button>
                     </div>
                   </Card>
+                  {ratesPropertyId === p.id && (
+                    <MefRatesImport property={p} onClose={() => setRatesPropertyId(null)} />
+                  )}
+                  </div>
                 )
               )}
             </div>

@@ -9,7 +9,7 @@
  */
 
 import { aiComplete, aiChat, prepareDocument } from './aiClient';
-import type { AppSettings, ChatMessage, LocalTaxRow, TaxDocumentType } from '../types';
+import type { AppSettings, ChatMessage, LocalTaxRow, TaxDocumentType, PropertyUsage } from '../types';
 
 const LANG_NAMES: Record<string, string> = {
   it: 'Italian',
@@ -157,8 +157,54 @@ export async function interpretPropertyDocument(
   };
 }
 
-// ---------- COPILOT-LIKE CHAT ----------
+// ---------- MUNICIPAL IMU RATES (delibera comunale) ----------
 
+export interface AliquoteInterpretation {
+  perMilleByUsage: Partial<Record<PropertyUsage, number>>;
+  deduction?: number; // detrazione abitazione principale (€)
+  explanation: string;
+}
+
+/**
+ * Read a municipal IMU resolution (delibera DIMUNIC) PDF for a given year and
+ * extract the aliquote (in ‰) by property usage, plus the abitazione principale
+ * deduction if present.
+ */
+export async function interpretAliquote(
+  file: File,
+  year: number,
+  settings: AppSettings
+): Promise<AliquoteInterpretation> {
+  const lang = languageName(settings.explanationLanguage ?? settings.language);
+  const system =
+    'You read an Italian municipal IMU resolution ("delibera/prospetto aliquote IMU"). ' +
+    `Extract the IMU rates (aliquote) in per mille (\u2030) for year ${year}, mapped to usage types. ` +
+    'Map to these usage keys: main_home (abitazione principale e pertinenze, categorie A/1 A/8 A/9), ' +
+    'other_building (altri fabbricati / fabbricati diversi), land (terreni agricoli), ' +
+    'buildable_area (aree fabbricabili / edificabili), appurtenance (pertinenze). ' +
+    'Also extract the abitazione principale deduction (detrazione) in euro if present. ' +
+    `Write "explanation" in ${lang}. ` +
+    'Respond ONLY with valid JSON: ' +
+    '{ "perMilleByUsage": { "main_home": number, "other_building": number, "land": number, ' +
+    '"buildable_area": number, "appurtenance": number }, "deduction": number, "explanation": string }. ' +
+    'Use null for usages not present. Rates are numbers in per mille (e.g. 10.6).';
+
+  const content = await aiComplete(
+    settings,
+    system,
+    `Estrai le aliquote IMU per l'anno ${year} dal documento allegato.`,
+    [await prepareDocument(file)],
+    true
+  );
+  const parsed = parseJson<AliquoteInterpretation>(content, { perMilleByUsage: {}, explanation: content });
+  return {
+    perMilleByUsage: parsed.perMilleByUsage ?? {},
+    deduction: parsed.deduction,
+    explanation: parsed.explanation ?? '',
+  };
+}
+
+// ---------- COPILOT-LIKE CHAT ----------
 export async function chatAssistant(
   messages: ChatMessage[],
   context: string,

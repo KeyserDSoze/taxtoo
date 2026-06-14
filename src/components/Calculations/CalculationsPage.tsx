@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileText, Loader2, Save, Download, Sparkles } from 'lucide-react';
 import { useStore } from '../../store/useStore';
@@ -42,6 +42,14 @@ export default function CalculationsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const property = myProperties.find((p) => p.id === propertyId);
+
+  // Prefill rate + deduction from the MEF-imported municipal rates for the chosen year.
+  const yearRate = property?.ratesByYear?.[year];
+  useEffect(() => {
+    if (yearRate?.perMille != null) setRate(String(yearRate.perMille));
+    if (yearRate?.deduction != null) setDeduction(String(yearRate.deduction));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyId, year, yearRate?.perMille, yearRate?.deduction]);
 
   const result = useMemo(() => {
     if (!property) return null;
@@ -202,6 +210,11 @@ export default function CalculationsPage() {
             </Field>
             <Field label={t('calculation.rate')}>
               <Input type="number" step="0.1" value={rate} onChange={(e) => setRate(e.target.value)} />
+              {yearRate?.perMille != null && (
+                <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
+                  {t('calculation.rateFromMef')}
+                </p>
+              )}
             </Field>
             <Field label={t('calculation.deduction')}>
               <Input type="number" step="0.01" value={deduction} onChange={(e) => setDeduction(e.target.value)} />

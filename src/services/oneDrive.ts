@@ -32,6 +32,7 @@ export function ensurePropertyFolders(
     extractionsId: `${propertyFolderId}/extractions`,
     calculationsId: `${propertyFolderId}/calculations`,
     f24Id: `${propertyFolderId}/f24`,
+    ratesId: `${propertyFolderId}/aliquote`,
   });
 }
 
