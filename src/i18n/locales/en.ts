@@ -127,6 +127,7 @@ export default {
     regionUnavailable: 'Region {{region}} is not in the MEF IMU dataset (autonomous local tax).',
     row: {
       found: 'Found',
+      inherited: 'From {{year}} resolution',
       not_found: 'Not found',
       region_unavailable: 'Region excluded',
       error: 'Error',

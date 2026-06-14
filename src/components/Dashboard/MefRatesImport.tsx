@@ -190,6 +190,27 @@ export default function MefRatesImport({ property, onClose }: Props) {
         }
       );
 
+      // Carry forward: a comune's rates stay in force until a new delibera changes
+      // them, so fill 'not_found' years with the most recent earlier found rate.
+      let lastFound: MunicipalRateYear | null = null;
+      for (let y = fromYear; y <= toYear; y++) {
+        const cur = next[y];
+        if (cur && (cur.status === 'found') && cur.perMille != null) {
+          lastFound = cur;
+        } else if (lastFound && (!cur || cur.status === 'not_found')) {
+          next[y] = {
+            year: y,
+            perMille: lastFound.perMille,
+            perMilleByUsage: lastFound.perMilleByUsage,
+            deduction: lastFound.deduction,
+            status: 'inherited',
+            inheritedFrom: lastFound.year,
+            sourceFile: lastFound.sourceFile,
+            driveFileId: lastFound.driveFileId,
+          };
+        }
+      }
+
       await persistRates(next);
       setDone(true);
     } catch (e) {
@@ -286,6 +307,8 @@ export default function MefRatesImport({ property, onClose }: Props) {
     if (!r) return <Badge tone="slate">{t('mef.row.not_found')}</Badge>;
     if (r.status === 'found' && r.note === t('mef.manualNote'))
       return <Badge tone="sky">{t('mef.source.manual')}</Badge>;
+    if (r.status === 'inherited')
+      return <Badge tone="sky">{t('mef.row.inherited', { year: r.inheritedFrom })}</Badge>;
     const tone =
       r.status === 'found'
         ? 'green'

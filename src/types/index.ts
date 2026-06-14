@@ -87,9 +87,11 @@ export interface MunicipalRateYear {
   /** Detrazione abitazione principale (€), if any. */
   deduction?: number;
   note?: string;
-  status: 'found' | 'not_found' | 'region_unavailable' | 'error';
+  status: 'found' | 'inherited' | 'not_found' | 'region_unavailable' | 'error';
   sourceFile?: string; // MEF filename
   driveFileId?: string; // saved resolution PDF on the user's Drive
+  /** When status is 'inherited', the year whose delibera the rate is carried forward from. */
+  inheritedFrom?: number;
 }
 
 export interface Property {

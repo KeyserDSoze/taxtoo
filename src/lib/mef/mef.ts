@@ -118,7 +118,7 @@ export async function fetchComuneResolutions(
   regione: string,
   fromYear: number,
   toYear: number,
-  onProgress?: (r: MefYearResult) => void
+  onProgress?: (r: MefYearResult) => void | Promise<void>
 ): Promise<MefYearResult[]> {
   const slug = regionSlug(regione);
   const results: MefYearResult[] = [];
@@ -145,7 +145,7 @@ export async function fetchComuneResolutions(
       }
     }
     results.push(r);
-    onProgress?.(r);
+    await onProgress?.(r);
   }
   return results;
 }
