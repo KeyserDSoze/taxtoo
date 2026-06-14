@@ -24,7 +24,7 @@ const ALLOWED_ORIGINS = ['https://taxtoo.app', 'http://localhost:54321', 'http:/
 
 const MAX_RESULTS = 5;
 const PER_PAGE_TEXT_LIMIT = 6000; // chars of stripped text per page
-const FETCH_TIMEOUT_MS = 8000;
+const FETCH_TIMEOUT_MS = 12000;
 
 function corsHeaders(origin) {
   const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -165,12 +165,19 @@ export default {
               headers: {
                 'User-Agent':
                   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
-                Accept: 'text/html,application/pdf',
+                Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
               },
             });
-            const ctype = pageResp.headers.get('Content-Type') || '';
+            const ctype = (pageResp.headers.get('Content-Type') || '').toLowerCase();
+            const isBinary =
+              ctype.includes('application/pdf') ||
+              ctype.startsWith('image/') ||
+              ctype.includes('octet-stream');
             let text = '';
-            if (pageResp.ok && ctype.includes('text/html')) {
+            if (pageResp.ok && !isBinary) {
+              // Read as text regardless of exact text/* subtype (many PA sites send
+              // text/html;charset=ISO-8859-1 or application/xhtml+xml).
               const body = await pageResp.text();
               text = stripHtml(body).slice(0, PER_PAGE_TEXT_LIMIT);
             }
