@@ -39,6 +39,7 @@ jobs:
           VITE_BASE: /
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_MICROSOFT_CLIENT_ID: ${{ secrets.VITE_MICROSOFT_CLIENT_ID }}
+          VITE_MEF_PROXY: ${{ secrets.VITE_MEF_PROXY }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
