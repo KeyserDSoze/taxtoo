@@ -119,6 +119,7 @@ export default {
     editRate: 'Inserisci/modifica aliquota a mano',
     refreshYear: 'Ricalcola questo anno dal MEF',
     searchYear: 'Cerca l\u2019aliquota su internet',
+    detail: 'Dettaglio AI (aliquote per uso + spiegazione)',
     searchProxyMissing: 'Ricerca web non configurata (VITE_MEF_SEARCH_PROXY).',
     searchNoResult: 'Nessuna aliquota affidabile trovata online per questo comune/anno.',
     webSource: 'Fonte web',

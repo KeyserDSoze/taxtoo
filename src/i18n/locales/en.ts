@@ -119,6 +119,7 @@ export default {
     editRate: 'Enter/edit the rate manually',
     refreshYear: 'Re-fetch this year from MEF',
     searchYear: 'Search the rate on the web',
+    detail: 'AI detail (rates per usage + explanation)',
     searchProxyMissing: 'Web search not configured (VITE_MEF_SEARCH_PROXY).',
     searchNoResult: 'No reliable rate found online for this comune/year.',
     webSource: 'Web source',

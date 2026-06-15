@@ -94,6 +94,8 @@ export interface MunicipalRateYear {
   inheritedFrom?: number;
   /** When status is 'web', the source page URL the rate was found on. */
   sourceUrl?: string;
+  /** AI explanation of how the rate was extracted (for transparency/diagnostics). */
+  explanation?: string;
 }
 
 export interface Property {

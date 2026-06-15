@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   RefreshCw,
   Globe,
+  Info,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import {
@@ -57,6 +58,7 @@ export default function MefRatesImport({ property, onClose }: Props) {
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [refreshingYear, setRefreshingYear] = useState<number | null>(null);
   const [searchingYear, setSearchingYear] = useState<number | null>(null);
+  const [detailYear, setDetailYear] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const uploadTargetYear = useRef<number | null>(null);
@@ -185,6 +187,7 @@ export default function MefRatesImport({ property, onClose }: Props) {
                 perMille: ali.perMilleByUsage[property.usageType],
                 perMilleByUsage: ali.perMilleByUsage,
                 deduction: ali.deduction,
+                explanation: ali.explanation,
                 status: 'found',
                 sourceFile: doc.filename,
                 driveFileId,
@@ -295,6 +298,7 @@ export default function MefRatesImport({ property, onClose }: Props) {
         perMille: ali.perMilleByUsage[property.usageType],
         perMilleByUsage: ali.perMilleByUsage,
         deduction: ali.deduction,
+        explanation: ali.explanation,
         status: 'found',
         sourceFile: file.name,
         driveFileId,
@@ -337,6 +341,7 @@ export default function MefRatesImport({ property, onClose }: Props) {
           perMille: ali.perMilleByUsage[property.usageType],
           perMilleByUsage: ali.perMilleByUsage,
           deduction: ali.deduction,
+          explanation: ali.explanation,
           status: 'found',
           sourceFile: doc.filename,
           driveFileId,
@@ -601,9 +606,62 @@ export default function MefRatesImport({ property, onClose }: Props) {
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
+                    {(r?.perMilleByUsage || r?.explanation) && (
+                      <button
+                        type="button"
+                        onClick={() => setDetailYear(detailYear === year ? null : year)}
+                        title={t('mef.detail')}
+                        aria-label={t('mef.detail')}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-sky-500 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <Info className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
+
+              {/* AI extraction detail (per-usage rates + explanation) */}
+              {detailYear === year && (r?.perMilleByUsage || r?.explanation) && (
+                <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 space-y-2">
+                  {r?.perMilleByUsage && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {(
+                        ['main_home', 'other_building', 'land', 'buildable_area', 'appurtenance'] as const
+                      ).map((u) => {
+                        const v = r.perMilleByUsage?.[u];
+                        return (
+                          <div
+                            key={u}
+                            className={`rounded-lg px-2 py-1.5 text-xs ${
+                              u === property.usageType
+                                ? 'bg-sky-50 dark:bg-sky-500/10 ring-1 ring-sky-300 dark:ring-sky-700'
+                                : 'bg-white dark:bg-slate-800'
+                            }`}
+                          >
+                            <div className="text-slate-500 truncate">
+                              {t(`property.usage.${u}` as Parameters<typeof t>[0])}
+                            </div>
+                            <div className="font-mono font-semibold">
+                              {v != null ? `${v} ‰` : '—'}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {r?.deduction != null && (
+                    <div className="text-xs text-slate-500">
+                      {t('calculation.deduction')}: <span className="font-mono">€ {r.deduction}</span>
+                    </div>
+                  )}
+                  {r?.explanation && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 whitespace-pre-wrap">
+                      {r.explanation}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Inline manual editor */}
               {isEditing && (
