@@ -33,6 +33,17 @@ function parseJson<T>(content: string, fallback: T): T {
   }
 }
 
+/**
+ * Ownership share must be a percentage (0..100). The AI sometimes returns a
+ * fraction (e.g. 0.25 for 1/4); treat any value in (0, 1] as a fraction and scale
+ * it to a percentage. Leaves undefined/0 and already-percentage values untouched.
+ */
+function normalizeOwnershipShare(value?: number): number | undefined {
+  if (value == null || Number.isNaN(value)) return undefined;
+  if (value > 0 && value <= 1) return Math.round(value * 100 * 100) / 100;
+  return value;
+}
+
 // ---------- DOCUMENT INTERPRETATION (F24 etc.) ----------
 
 export interface InterpretedDocument {
@@ -130,7 +141,10 @@ export async function interpretPropertyDocument(
     '"category": string, "cadastralIncome": number, "ownershipShare": number, "address": string, ' +
     '"usageType": "main_home"|"other_building"|"land"|"buildable_area"|"appurtenance" } ], ' +
     '"explanation": string }. ' +
-    'Use null/empty for unknown fields. cadastralIncome and ownershipShare are numbers (dot decimals).';
+    'Use null/empty for unknown fields. cadastralIncome and ownershipShare are numbers (dot decimals). ' +
+    'IMPORTANT: "ownershipShare" is a PERCENTAGE from 0 to 100 (e.g. a fraction of 1/4 = 25, ' +
+    '1/2 = 50, full ownership = 100). If the document expresses the share as a fraction or ' +
+    'decimal (e.g. 1/4 or 0,25), convert it to its percentage value (25), NOT 0.25.';
 
   const content = await aiComplete(
     settings,
@@ -151,7 +165,10 @@ export async function interpretPropertyDocument(
     deedKind: parsed.deedKind ?? 'other',
     date: parsed.date ?? undefined,
     ownerFiscalCode: parsed.ownerFiscalCode ?? undefined,
-    properties: parsed.properties ?? [],
+    properties: (parsed.properties ?? []).map((p) => ({
+      ...p,
+      ownershipShare: normalizeOwnershipShare(p.ownershipShare),
+    })),
     confidence: parsed.confidence ?? 0,
     explanation: parsed.explanation ?? '',
   };
