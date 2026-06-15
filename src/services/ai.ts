@@ -195,12 +195,20 @@ export async function interpretAliquote(
   const lang = languageName(settings.explanationLanguage ?? settings.language);
   const system =
     'You read an Italian municipal IMU resolution ("delibera/prospetto aliquote IMU"). ' +
-    `Extract the IMU rates (aliquote) in per mille (\u2030) for year ${year}, mapped to usage types. ` +
+    'The document may be a SCANNED image — read it carefully (OCR) including tables. ' +
+    `Extract the IMU rates (aliquote) for year ${year}, mapped to usage types. ` +
     'Map to these usage keys: main_home (abitazione principale e pertinenze, categorie A/1 A/8 A/9), ' +
     'other_building (altri fabbricati / fabbricati diversi), land (terreni agricoli), ' +
     'buildable_area (aree fabbricabili / edificabili), appurtenance (pertinenze). ' +
-    'Also extract the abitazione principale deduction (detrazione) in euro if present. ' +
-    `Write "explanation" in ${lang}. ` +
+    'CRITICAL UNIT RULE: the final values you output MUST be in PER MILLE (‰). ' +
+    'Italian resolutions often state rates in "per cento" (%, percentage points): convert them ' +
+    'to per mille by multiplying by 10. Examples: "0,5 per cento" = 5 ‰; "0,86 per cento" = 8.6 ‰; ' +
+    '"1,06 per cento" = 10.6 ‰; "10,6 per mille" stays 10.6 ‰. A typical "altri fabbricati" rate is ' +
+    'around 8.6–10.6 ‰, never 0 unless the document truly sets it to zero. ' +
+    'Prefer the rate the comune has actually DELIBERATED (resolved) for each usage, not the base/legal ' +
+    'minimum quoted from law references. ' +
+    'Also extract the abitazione principale deduction (detrazione) in euro if present (e.g. 200). ' +
+    `Write "explanation" in ${lang}, briefly noting where each value was found and any % → ‰ conversion. ` +
     'Respond ONLY with valid JSON: ' +
     '{ "perMilleByUsage": { "main_home": number, "other_building": number, "land": number, ' +
     '"buildable_area": number, "appurtenance": number }, "deduction": number, "explanation": string }. ' +

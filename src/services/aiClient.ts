@@ -18,6 +18,7 @@ import { AzureOpenAI, OpenAI } from 'openai';
 import * as XLSX from 'xlsx';
 import { unzipSync, strFromU8 } from 'fflate';
 import type { AppSettings, AiProvider } from '../types';
+import { pdfToImages } from './pdfRender';
 import {
   copilotMsalInstance,
   COPILOT_SCOPES,
@@ -51,6 +52,7 @@ export async function fileToBase64(blob: Blob): Promise<string> {
 
 export type PreparedDoc =
   | { kind: 'image'; mimeType: string; base64: string; filename: string }
+  | { kind: 'images'; images: { mimeType: string; base64: string }[]; filename: string }
   | { kind: 'pdf'; mimeType: string; base64: string; filename: string }
   | { kind: 'text'; text: string; filename: string };
 
@@ -89,8 +91,17 @@ export async function prepareDocument(file: File): Promise<PreparedDoc> {
     return { kind: 'image', mimeType: type, base64: await fileToBase64(file), filename: file.name };
   }
 
-  // PDF — sent natively to the model
+  // PDF — rasterize to page images so vision models reliably OCR scanned/image-only
+  // PDFs (native PDF parsing is inconsistent across providers). Fallback to native.
   if (type === 'application/pdf' || ext === 'pdf') {
+    try {
+      const pages = await pdfToImages(file);
+      if (pages.length) {
+        return { kind: 'images', images: pages, filename: file.name };
+      }
+    } catch {
+      /* fall back to native PDF */
+    }
     return { kind: 'pdf', mimeType: 'application/pdf', base64: await fileToBase64(file), filename: file.name };
   }
 
@@ -183,6 +194,13 @@ function openAiUserContent(text: string, docs: PreparedDoc[]): any[] {
         type: 'image_url',
         image_url: { url: `data:${d.mimeType};base64,${d.base64}`, detail: 'auto' },
       });
+    } else if (d.kind === 'images') {
+      for (const img of d.images) {
+        parts.push({
+          type: 'image_url',
+          image_url: { url: `data:${img.mimeType};base64,${img.base64}`, detail: 'high' },
+        });
+      }
     } else if (d.kind === 'pdf') {
       // OpenAI / Azure chat completions accept PDFs as a "file" content part.
       parts.push({
@@ -219,6 +237,10 @@ async function geminiGenerate(
   for (const d of docs) {
     if (d.kind === 'image' || d.kind === 'pdf') {
       parts.push({ inlineData: { mimeType: d.mimeType, data: d.base64 } });
+    } else if (d.kind === 'images') {
+      for (const img of d.images) {
+        parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+      }
     } else {
       prompt += `\n\n--- ${d.filename} ---\n${d.text.slice(0, 20000)}`;
     }
